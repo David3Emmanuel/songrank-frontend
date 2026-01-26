@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { RankerProvider, useRanker } from '../context/RankerContext'
 import RankingArena from '../components/RankingArena'
 import ResultsView from '../components/ResultsView'
-import { Music2, Play, Sparkles } from 'lucide-react'
+import YouTubeImportModal from '../components/YouTubeImportModal'
+import { Music2, Play, Sparkles, Youtube } from 'lucide-react'
 import type { Track } from '../lib/types'
 
 // Demo tracks for testing
@@ -72,9 +74,14 @@ const DEMO_TRACKS: Track[] = [
 
 function DashboardContent() {
   const { initializeRanker, currentPair, isComplete } = useRanker()
+  const [showYouTubeImport, setShowYouTubeImport] = useState(false)
 
   const handleStartDemo = () => {
     initializeRanker(DEMO_TRACKS)
+  }
+
+  const handleYouTubeImport = (tracks: Track[]) => {
+    initializeRanker(tracks)
   }
 
   // Show results if complete
@@ -149,17 +156,26 @@ function DashboardContent() {
               Import from Spotify (Coming Soon)
             </button>
             <button
-              disabled
-              className='w-full bg-white/5 border border-white/20 text-white/50 font-semibold py-3 rounded-xl cursor-not-allowed'
+              onClick={() => setShowYouTubeImport(true)}
+              className='w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2'
             >
-              Import from YouTube Music (Coming Soon)
+              <Youtube size={20} />
+              Import from YouTube Music
             </button>
           </div>
 
           <p className='text-xs text-white/40 mt-4 text-center'>
-            Full import features require API integration
+            YouTube import requires a free API key
           </p>
         </div>
+
+        {/* YouTube Import Modal */}
+        {showYouTubeImport && (
+          <YouTubeImportModal
+            onImport={handleYouTubeImport}
+            onClose={() => setShowYouTubeImport(false)}
+          />
+        )}
 
         {/* Footer */}
         <div className='text-center mt-8 text-white/40 text-sm'>
