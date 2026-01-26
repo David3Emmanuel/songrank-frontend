@@ -87,6 +87,7 @@ export class YouTubeAdapter {
         album: '',
         durationMs: 0,
         coverImage:
+          item.snippet.thumbnails?.maxres?.url ||
           item.snippet.thumbnails?.high?.url ||
           item.snippet.thumbnails?.default?.url,
         externalUrls: {
