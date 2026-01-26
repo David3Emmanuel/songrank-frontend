@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SongRank
+
+**Ranking playlists is usually a chore. This makes it a game.**
+
+Ever tried to manually sort a 50-song playlist from Best to Worst? It’s impossible. You lose focus after the top 10. SongRank solves this by breaking it down into simple 1-vs-1 battles. You just decide which of the two songs you prefer right now, and the math engine figures out the rest.
+
+## How it Works
+
+Under the hood, SongRank uses Ridge Regression and Active Learning.
+
+1.  **Matchup:** The app picks two songs it knows the least about.
+2.  **Swipe:** You drag the winner. The UI uses physics-based gestures—drag Song A, and it actually gets louder while Song B fades out.
+3.  **Math:** Every swipe updates the model running in your browser. It doesn't need you to compare every single pair to build a complete leaderboard. It usually solves a playlist with 85% confidence in just a few minutes.
+
+## Features
+
+### The Game Loop
+
+- Drag to listen. The audio crossfades dynamically based on your finger position.
+- Can't decide? Drag down to declare a tie. The model handles it gracefully.
+- Watch your Top 10 shift in real-time as you play.
+
+### Socials & Rank Duels
+
+- **Taste Receipts:** Finished a session? Generate a clean, 9:16 card of your Top 5 (complete with album art) to share on Instagram/Twitter.
+- **Compatibility Mode:** Send a Duel Link to a friend. They rank the same set of songs, and the app calculates a **Compatibility Score** (0-100%). Finally, scientific proof that your friends have bad taste.
+
+## Tech Stack
+
+- **Framework:** Next.js
+- **Math:** `ml-matrix`
+- **Data:** Spotify & YouTube APIs
+- **State:** React Context + SessionStorage
 
 ## Getting Started
 
-First, run the development server:
+### 1. Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. (Optional) Set up API Keys
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` file:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env.local
+```
 
-## Learn More
+#### YouTube Data API v3 (for importing playlists)
 
-To learn more about Next.js, take a look at the following resources:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create a new project or select existing one
+3. Enable "YouTube Data API v3"
+4. Create an API Key
+5. Add to `.env.local`:
+   ```
+   NEXT_PUBLIC_YOUTUBE_API_KEY=your_key_here
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Note:** The YouTube API is free with 10,000 quota units/day (enough for ~100 playlist imports). If you don't set a key, the app will prompt you to enter one in the UI.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+#### Supabase (for Rank Duels)
 
-## Deploy on Vercel
+The app works perfectly without Supabase—it runs in mock mode. If you want persistent duel sessions:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run the SQL schema from `supabase-schema.sql`
+3. Add credentials to `.env.local`:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3. Run Development Server
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+### 4. Try it Out
+
+- **Demo Mode:** Click "Try Demo (5 Songs)" to test the swipe mechanics immediately
+- **YouTube Import:** Click "Import from YouTube Music", paste a playlist URL, and start ranking your real playlists
+
+## How to Use
+
+### Importing a Playlist
+
+1. Click "Import from YouTube Music"
+2. Enter your API key (or it will use the one from `.env.local`)
+3. Paste a YouTube playlist URL like:
+   ```
+   https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf
+   ```
+4. Click "Import Playlist"
+
+### The Ranking Game
+
+1. Two songs appear side-by-side
+2. **Drag the winner** towards the top (or tap the "Prefer" button)
+3. **Drag down** if they're equally good (tie)
+4. Audio previews crossfade as you drag
+5. Continue until the app reaches 85% confidence
+6. See your final rankings!
+
+### Sharing Results
+
+- **Share Card:** Generate a social media image (9:16, 1:1, or 16:9) with your Top 5
+- **Rank Duel:** Create a challenge link for friends to rank the same songs
