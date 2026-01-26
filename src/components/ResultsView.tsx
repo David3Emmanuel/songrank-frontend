@@ -133,7 +133,7 @@ export default function ResultsView() {
         <ShareCardModal
           rankings={rankings}
           tracks={tracks}
-          playlistName="My Ranked Playlist"
+          playlistName='My Ranked Playlist'
           onClose={() => setShowShareModal(false)}
         />
       )}
@@ -142,7 +142,7 @@ export default function ResultsView() {
       {showDuelModal && (
         <DuelInviteModal
           tracks={tracks}
-          playlistName="My Ranked Playlist"
+          playlistName='My Ranked Playlist'
           onClose={() => setShowDuelModal(false)}
         />
       )}
