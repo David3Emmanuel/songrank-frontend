@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
 import { Music } from 'lucide-react'
+import YouTube, { type YouTubePlayer, type YouTubeProps } from '../lib/youtube'
 import type { Track } from '../lib/types'
 
 export interface InteractionState {
@@ -31,29 +32,39 @@ export default function SongCard({
   const [opacity, setOpacity] = useState(1)
   const [volume, setVolume] = useState(0.5)
   const [isStrong, setIsStrong] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const playerRef = useRef<YouTubePlayer | null>(null)
 
-  // Initialize audio
+  const opts: YouTubeProps['opts'] = {
+    height: '1',
+    width: '1',
+    playerVars: {
+      autoplay: 1,
+      playsinline: 1,
+      controls: 0,
+      disablekb: 1,
+    },
+  }
+
+  const onPlayerReady: YouTubeProps['onReady'] = (event) => {
+    playerRef.current = event.target
+    event.target.setVolume(volume * 100)
+    event.target.playVideo()
+  }
+
+  const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
+    setIsPlaying(event.data === 1)
+  }
+
+  // Clean up player on unmount
   useEffect(() => {
-    if (track.previewUrl) {
-      audioRef.current = new Audio(track.previewUrl)
-      audioRef.current.loop = true
-      audioRef.current.volume = 0.5
-
-      // Auto-play
-      audioRef.current.play().catch(() => {
-        // Auto-play blocked, user needs to interact first
-      })
-    }
-
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+      if (playerRef.current) {
+        playerRef.current.pauseVideo()
       }
     }
-  }, [track.previewUrl])
+  }, [])
 
   // Register this card's update handler with parent
   useEffect(() => {
@@ -66,8 +77,8 @@ export default function SongCard({
         setOpacity(1)
         setVolume(0.5)
         setIsStrong(false)
-        if (audioRef.current) {
-          audioRef.current.volume = 0.5
+        if (playerRef.current) {
+          playerRef.current.setVolume(50)
         }
         return
       }
@@ -89,8 +100,8 @@ export default function SongCard({
         setScale(1 + progress * 0.4)
         setOpacity(1)
         setIsStrong(zone === `strong-${side === 'left' ? 'a' : 'b'}`)
-        if (audioRef.current) {
-          audioRef.current.volume = newVolume
+        if (playerRef.current) {
+          playerRef.current.setVolume(newVolume * 100)
         }
       } else if (isLosing) {
         // User is dragging away - we're losing
@@ -99,16 +110,16 @@ export default function SongCard({
         setScale(1 - progress * 0.2)
         setOpacity(1 - progress)
         setIsStrong(false)
-        if (audioRef.current) {
-          audioRef.current.volume = newVolume
+        if (playerRef.current) {
+          playerRef.current.setVolume(newVolume * 100)
         }
       } else {
         setVolume(0.5)
         setScale(1)
         setOpacity(1)
         setIsStrong(false)
-        if (audioRef.current) {
-          audioRef.current.volume = 0.5
+        if (playerRef.current) {
+          playerRef.current.setVolume(50)
         }
       }
     }
@@ -116,54 +127,75 @@ export default function SongCard({
     registerUpdateHandler(handleUpdate)
   }, [registerUpdateHandler, side])
 
+  // Extract YouTube video ID from track
+  const videoId = track.externalUrls?.youtube
+    ? track.externalUrls.youtube.split('v=')[1]?.split('&')[0] || track.id
+    : track.id
+
   return (
-    <div
-      className='w-40 h-40 md:w-64 md:h-64 transition-transform duration-100 ease-out flex flex-col items-center justify-center'
-      style={{
-        transform: `scale(${scale})`,
-        opacity: opacity,
-      }}
-    >
+    <>
+      {/* Hidden YouTube Player */}
       <div
-        className='w-full h-full rounded-2xl shadow-2xl flex items-center justify-center border-2 border-white/10 relative overflow-hidden'
-        style={{
-          backgroundColor: '#1f2937',
-        }}
+        className='absolute'
+        style={{ top: '-9999px', left: '-9999px', visibility: 'hidden' }}
       >
-        {/* Eclipse Flash Effect */}
-        {isStrong && (
-          <div className='absolute inset-0 bg-white/20 animate-pulse' />
-        )}
-
-        {track.coverImage ? (
-          <Image
-            src={track.coverImage}
-            alt={track.title}
-            fill
-            className='object-cover'
-            sizes='(max-width: 768px) 160px, 256px'
-          />
-        ) : (
-          <Music className='w-16 h-16 text-white/30' />
-        )}
-
-        {/* Audio Visualizer */}
-        <div className='absolute bottom-4 left-0 right-0 flex justify-center gap-1 h-8 items-end'>
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className='w-1 bg-white/50 rounded-full transition-all duration-100'
-              style={{
-                height: `${volume * 100 * Math.random()}%`,
-              }}
-            />
-          ))}
-        </div>
+        <YouTube
+          videoId={videoId}
+          opts={opts}
+          onReady={onPlayerReady}
+          onStateChange={onPlayerStateChange}
+        />
       </div>
 
-      <p className='mt-4 font-bold' style={{ color: accentColor }}>
-        {track.title}
-      </p>
-    </div>
+      <div
+        className='w-40 h-40 md:w-64 md:h-64 transition-transform duration-100 ease-out flex flex-col items-center justify-center'
+        style={{
+          transform: `scale(${scale})`,
+          opacity: opacity,
+        }}
+      >
+        <div
+          className='w-full h-full rounded-2xl shadow-2xl flex items-center justify-center border-2 border-white/10 relative overflow-hidden'
+          style={{
+            backgroundColor: '#1f2937',
+          }}
+        >
+          {/* Eclipse Flash Effect */}
+          {isStrong && (
+            <div className='absolute inset-0 bg-white/20 animate-pulse' />
+          )}
+
+          {track.coverImage ? (
+            <Image
+              src={track.coverImage}
+              alt={track.title}
+              fill
+              className='object-cover'
+              sizes='(max-width: 768px) 160px, 256px'
+            />
+          ) : (
+            <Music className='w-16 h-16 text-white/30' />
+          )}
+
+          {/* Audio Visualizer */}
+          <div className='absolute bottom-4 left-0 right-0 flex justify-center gap-1 h-8 items-end'>
+            {isPlaying &&
+              [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className='w-1 bg-white/50 rounded-full transition-all duration-100'
+                  style={{
+                    height: `${volume * 100 * Math.random()}%`,
+                  }}
+                />
+              ))}
+          </div>
+        </div>
+
+        <p className='mt-4 font-bold' style={{ color: accentColor }}>
+          {track.title}
+        </p>
+      </div>
+    </>
   )
 }
