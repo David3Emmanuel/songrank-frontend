@@ -2,6 +2,7 @@
 
 import { useRanker } from '../context/RankerContext'
 import ShareCardModal from './ShareCardModal'
+import DuelInviteModal from './DuelInviteModal'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -9,6 +10,7 @@ import Image from 'next/image'
 export default function ResultsView() {
   const { rankings, tracks, completedComparisons, resetRanker } = useRanker()
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showDuelModal, setShowDuelModal] = useState(false)
 
   const rankedTracks = rankings
     .map((r) => {
@@ -44,7 +46,10 @@ export default function ResultsView() {
             <Share2 size={20} />
             Share Results
           </button>
-          <button className='flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors'>
+          <button
+            onClick={() => setShowDuelModal(true)}
+            className='flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors'
+          >
             <Users size={20} />
             Challenge Friend
           </button>
@@ -130,6 +135,15 @@ export default function ResultsView() {
           tracks={tracks}
           playlistName="My Ranked Playlist"
           onClose={() => setShowShareModal(false)}
+        />
+      )}
+
+      {/* Duel Invite Modal */}
+      {showDuelModal && (
+        <DuelInviteModal
+          tracks={tracks}
+          playlistName="My Ranked Playlist"
+          onClose={() => setShowDuelModal(false)}
         />
       )}
     </div>
