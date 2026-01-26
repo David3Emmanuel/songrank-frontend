@@ -20,6 +20,7 @@ export interface SongCardProps {
   side?: 'left' | 'right'
   accentColor?: string
   registerUpdateHandler?: (handler: (state: InteractionState) => void) => void
+  numberOfBars?: number
 }
 
 export default function SongCard({
@@ -27,6 +28,7 @@ export default function SongCard({
   side = 'left',
   accentColor = side === 'left' ? '#10b981' : '#3b82f6',
   registerUpdateHandler,
+  numberOfBars = 20,
 }: SongCardProps) {
   const [scale, setScale] = useState(1)
   const [opacity, setOpacity] = useState(1)
@@ -180,7 +182,7 @@ export default function SongCard({
           {/* Audio Visualizer */}
           <div className='absolute bottom-4 left-0 right-0 flex justify-center gap-1 h-8 items-end'>
             {isPlaying &&
-              [1, 2, 3, 4].map((i) => (
+              Array.from({ length: numberOfBars }).map((_, i) => (
                 <div
                   key={i}
                   className='w-1 bg-white/50 rounded-full transition-all duration-100'
