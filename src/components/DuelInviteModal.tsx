@@ -122,7 +122,7 @@ export default function DuelInviteModal({
             <button
               onClick={handleCreateDuel}
               disabled={isCreating}
-              className='w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2'
+              className='w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2'
             >
               {isCreating ? (
                 <>
@@ -161,7 +161,7 @@ export default function DuelInviteModal({
                 />
                 <button
                   onClick={handleCopy}
-                  className='flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'
+                  className='shrink-0 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'
                   aria-label='Copy link'
                 >
                   {copied ? (

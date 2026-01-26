@@ -20,7 +20,7 @@ export default function ResultsView() {
     .filter((r) => r.track)
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8'>
+    <div className='min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8'>
       <div className='max-w-4xl mx-auto'>
         {/* Header */}
         <div className='text-center mb-8'>
@@ -68,7 +68,7 @@ export default function ResultsView() {
                 className='bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 flex items-center gap-4 hover:bg-white/15 transition-colors'
               >
                 {/* Rank */}
-                <div className='flex-shrink-0 w-12 text-center'>
+                <div className='shrink-0 w-12 text-center'>
                   {medal ? (
                     <span className='text-3xl'>{medal}</span>
                   ) : (
@@ -79,7 +79,7 @@ export default function ResultsView() {
                 </div>
 
                 {/* Album Art */}
-                <div className='flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-700'>
+                <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-700'>
                   {track.coverImage ? (
                     <Image
                       src={track.coverImage}
@@ -106,7 +106,7 @@ export default function ResultsView() {
                 </div>
 
                 {/* Score */}
-                <div className='flex-shrink-0 text-right'>
+                <div className='shrink-0 text-right'>
                   <div className='text-sm text-white/50'>Score</div>
                   <div className='text-lg font-bold'>
                     {item.Score.toFixed(2)}

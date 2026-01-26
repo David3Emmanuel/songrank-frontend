@@ -43,7 +43,7 @@ export default function DuelComparisonView({
 
   if (isLoading) {
     return (
-      <div className='min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center'>
+      <div className='min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center'>
         <div className='text-center'>
           <Loader2 size={48} className='text-white animate-spin mx-auto mb-4' />
           <p className='text-white/80'>Loading comparison...</p>
@@ -54,7 +54,7 @@ export default function DuelComparisonView({
 
   if (error && !comparison) {
     return (
-      <div className='min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4'>
+      <div className='min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4'>
         <div className='text-center max-w-md'>
           <AlertTriangle size={48} className='text-yellow-500 mx-auto mb-4' />
           <p className='text-white text-xl mb-4'>{error}</p>
@@ -80,7 +80,7 @@ export default function DuelComparisonView({
         : 'text-red-400'
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8'>
+    <div className='min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8'>
       <div className='max-w-5xl mx-auto'>
         {/* Header */}
         <div className='text-center mb-8'>
@@ -165,7 +165,7 @@ export default function DuelComparisonView({
                     className='bg-white/5 rounded-lg p-4 flex items-center gap-4'
                   >
                     {track.coverImage && (
-                      <div className='flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden'>
+                      <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden'>
                         <Image
                           src={track.coverImage}
                           alt={track.title}
@@ -181,7 +181,7 @@ export default function DuelComparisonView({
                         {track.artist}
                       </p>
                     </div>
-                    <div className='flex-shrink-0 text-right'>
+                    <div className='shrink-0 text-right'>
                       <div className='text-sm text-white/60'>Ranks</div>
                       <div className='font-bold'>
                         #{item.rank_a} vs #{item.rank_b}
