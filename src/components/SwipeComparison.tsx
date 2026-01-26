@@ -124,7 +124,8 @@ export default function SwipeComparison({
         setPosition({ x: 0, y: 0 })
         setZone('neutral')
         setFeedback(neutralFeedback)
-      }, 1200)
+        updateCardStates(0, 0)
+      }, 1000)
     } else {
       // Bounce back
       setPosition({ x: 0, y: 0 })
