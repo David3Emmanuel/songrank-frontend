@@ -1,6 +1,7 @@
 'use client'
 
 import { useRanker } from '../context/RankerContext'
+import ShareCardModal from './ShareCardModal'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -124,26 +125,12 @@ export default function ResultsView() {
 
       {/* Share Modal */}
       {showShareModal && (
-        <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
-          <div className='bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-white/10'>
-            <h2 className='text-2xl font-bold mb-4'>Share Your Rankings</h2>
-            <p className='text-white/70 mb-6'>
-              Generate a shareable image of your top songs to post on social
-              media.
-            </p>
-            <div className='flex flex-col gap-3'>
-              <button className='w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white font-semibold py-3 rounded-lg transition-opacity'>
-                Generate Share Card
-              </button>
-              <button
-                onClick={() => setShowShareModal(false)}
-                className='w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-lg transition-colors'
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <ShareCardModal
+          rankings={rankings}
+          tracks={tracks}
+          playlistName="My Ranked Playlist"
+          onClose={() => setShowShareModal(false)}
+        />
       )}
     </div>
   )
