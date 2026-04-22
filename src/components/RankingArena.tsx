@@ -51,8 +51,16 @@ export default function RankingArena() {
           )}
         </button>
 
-        {/* Progress Indicators */}
-        <div className='absolute top-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none'>
+        {/* Mobile: full-width confidence bar at top edge */}
+        <div className='md:hidden absolute top-0 left-0 right-0 z-50 h-0.5 bg-white/10 pointer-events-none'>
+          <div
+            className='h-full bg-linear-to-r from-yellow-500 to-green-500 transition-all duration-500'
+            style={{ width: `${confidence * 100}%` }}
+          />
+        </div>
+
+        {/* Desktop: labelled pills top-right */}
+        <div className='hidden md:flex absolute top-4 right-4 z-50 flex-col items-end gap-2 pointer-events-none'>
           <div className='bg-white/10 backdrop-blur-md border border-white/30 rounded-full px-4 py-2 text-white text-sm'>
             Comparisons: {completedComparisons}
           </div>
