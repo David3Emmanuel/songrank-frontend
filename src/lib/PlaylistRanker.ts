@@ -307,6 +307,14 @@ export class PlaylistRanker {
   }
 
   /**
+   * Remove and return the most recent comparison (for undo support)
+   */
+  undoLastComparison(): ComparisonHistory | null {
+    if (this.history.length === 0) return null
+    return this.history.pop() ?? null
+  }
+
+  /**
    * Load state from serialized data (for session restore)
    */
   loadState(songs: string[], history: ComparisonHistory[]): void {
