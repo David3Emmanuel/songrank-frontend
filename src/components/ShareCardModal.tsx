@@ -30,9 +30,11 @@ export default function ShareCardModal({
   })
   const [isGenerating, setIsGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleGenerate = async () => {
     setIsGenerating(true)
+    setError(null)
     try {
       const topTracks = rankings
         .slice(0, config.top_n)
@@ -44,9 +46,9 @@ export default function ShareCardModal({
 
       const dataUrl = await generateShareCard(topTracks, config, playlistName)
       setPreviewUrl(dataUrl)
-    } catch (error) {
-      console.error('Failed to generate share card:', error)
-      alert('Failed to generate image. Please try again.')
+    } catch (err) {
+      console.error('Failed to generate share card:', err)
+      setError('Failed to generate image. Please try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -72,7 +74,7 @@ export default function ShareCardModal({
 
   return (
     <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto'>
-      <div className='bg-slate-800 rounded-2xl p-6 max-w-2xl w-full border border-white/10 my-8'>
+      <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full border border-white/20 my-8'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <h2 className='text-2xl font-bold text-white'>Create Share Card</h2>
@@ -99,7 +101,7 @@ export default function ShareCardModal({
                   onClick={() => setConfig({ ...config, top_n: n })}
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.top_n === n
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-white/20 text-white'
                       : 'bg-white/10 text-white/60 hover:bg-white/20'
                   }`}
                 >
@@ -130,7 +132,7 @@ export default function ShareCardModal({
                   }
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.format === format.value
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-white/20 text-white'
                       : 'bg-white/10 text-white/60 hover:bg-white/20'
                   }`}
                 >
@@ -160,7 +162,7 @@ export default function ShareCardModal({
                   }
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.theme === theme.value
-                      ? 'bg-purple-600 text-white'
+                      ? 'bg-white/20 text-white'
                       : 'bg-white/10 text-white/60 hover:bg-white/20'
                   }`}
                 >
@@ -186,6 +188,13 @@ export default function ShareCardModal({
             </label>
           </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className='bg-red-600/20 border border-red-500/30 rounded-lg p-3 mt-4'>
+            <p className='text-sm text-red-200'>{error}</p>
+          </div>
+        )}
 
         {/* Generate Button */}
         {!previewUrl && (
@@ -236,7 +245,7 @@ export default function ShareCardModal({
 
             {/* Regenerate */}
             <button
-              onClick={() => setPreviewUrl(null)}
+              onClick={() => { setPreviewUrl(null); setError(null) }}
               className='w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-2 rounded-lg transition-colors'
             >
               Change Settings
