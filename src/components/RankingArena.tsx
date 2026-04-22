@@ -4,12 +4,47 @@ import { useRanker } from '../context/RankerContext'
 import SwipeComparison from '../components/SwipeComparison'
 import SongCard from '../components/SongCard'
 import LiveRankings from '../components/LiveRankings'
+import YouTube from '../lib/youtube'
+import type { Track } from '../lib/types'
 import { List, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
+
+/**
+ * Silently preloads a YouTube video in a hidden, muted iframe.
+ * This warms up the CDN connection and buffers the first few seconds so
+ * that when the video becomes the active card the audio starts faster.
+ */
+function AudioPreloader({ track }: { track: Track }) {
+  const videoId = track.externalUrls?.youtube
+    ? track.externalUrls.youtube.split('v=')[1]?.split('&')[0] || track.id
+    : track.id
+
+  const opts = {
+    height: '1',
+    width: '1',
+    playerVars: { autoplay: 1, mute: 1, playsinline: 1, controls: 0, disablekb: 1 },
+  }
+
+  return (
+    <div
+      aria-hidden='true'
+      style={{
+        position: 'absolute',
+        top: -9999,
+        left: -9999,
+        visibility: 'hidden',
+        pointerEvents: 'none',
+      }}
+    >
+      <YouTube videoId={videoId} opts={opts} />
+    </div>
+  )
+}
 
 export default function RankingArena() {
   const {
     currentPair,
+    nextPair,
     submitVote,
     confidence,
     completedComparisons,
@@ -154,6 +189,15 @@ export default function RankingArena() {
         tracks={tracks}
         completedComparisons={completedComparisons}
       />
+
+      {/* Speculative preloaders for the next pair — hidden, muted, off-screen.
+          Warms up YouTube connections so audio starts faster after the next swipe. */}
+      {nextPair && (
+        <>
+          <AudioPreloader key={nextPair[0].id} track={nextPair[0]} />
+          <AudioPreloader key={nextPair[1].id} track={nextPair[1]} />
+        </>
+      )}
     </div>
   )
 }
