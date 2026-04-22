@@ -36,7 +36,9 @@ export default function SongCard({
   const [isStrong, setIsStrong] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isFallbackLoading, setIsFallbackLoading] = useState(false)
   const [hasError, setHasError] = useState(false)
+  const [fallbackVideoId, setFallbackVideoId] = useState<string | null>(null)
 
   const playerRef = useRef<YouTubePlayer | null>(null)
 
@@ -58,11 +60,17 @@ export default function SongCard({
     ? track.externalUrls.youtube.split('v=')[1]?.split('&')[0] || track.id
     : track.id
 
+  // Full reset whenever the base video changes (new track in the pair)
   useEffect(() => {
+    setFallbackVideoId(null)
+    setIsFallbackLoading(false)
     setIsLoading(true)
     setHasError(false)
     setIsPlaying(false)
   }, [videoId])
+
+  // The ID actually fed to the player — fallback overrides base when set
+  const activeVideoId = fallbackVideoId ?? videoId
 
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target
@@ -79,9 +87,35 @@ export default function SongCard({
     if (state === 1) setHasError(false)
   }
 
-  const onPlayerError: YouTubeProps['onError'] = () => {
-    setIsLoading(false)
-    setHasError(true)
+  const onPlayerError: YouTubeProps['onError'] = async () => {
+    // If the fallback itself failed, give up
+    if (fallbackVideoId) {
+      setIsFallbackLoading(false)
+      setIsLoading(false)
+      setHasError(true)
+      return
+    }
+
+    // First failure — search for a playable alternative
+    setIsFallbackLoading(true)
+    try {
+      const params = new URLSearchParams({ title: track.title, artist: track.artist })
+      const res = await fetch(`/api/search?${params}`)
+      const data = await res.json()
+      if (data.videoId) {
+        setFallbackVideoId(data.videoId)
+        setIsLoading(true)
+        setIsFallbackLoading(false)
+      } else {
+        setIsFallbackLoading(false)
+        setIsLoading(false)
+        setHasError(true)
+      }
+    } catch {
+      setIsFallbackLoading(false)
+      setIsLoading(false)
+      setHasError(true)
+    }
   }
 
   // Clean up player on unmount
@@ -162,7 +196,7 @@ export default function SongCard({
         style={{ top: '-9999px', left: '-9999px', visibility: 'hidden' }}
       >
         <YouTube
-          videoId={videoId}
+          videoId={activeVideoId}
           opts={opts}
           onReady={onPlayerReady}
           onStateChange={onPlayerStateChange}
@@ -201,9 +235,19 @@ export default function SongCard({
           )}
 
           {/* Loading Spinner */}
-          {isLoading && !hasError && (
+          {isLoading && !hasError && !isFallbackLoading && (
             <div className='absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl'>
               <div className='w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+            </div>
+          )}
+
+          {/* Fallback Search Overlay */}
+          {isFallbackLoading && (
+            <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-2xl gap-2'>
+              <div className='w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+              <span className='text-white/70 text-xs text-center px-3 leading-tight'>
+                Finding alternative…
+              </span>
             </div>
           )}
 
