@@ -134,7 +134,7 @@ export default function LiveRankings({
               <Trophy size={24} className='text-yellow-500' />
               {completedComparisons > 0 && (
                 <div className='absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white'>
-                  {completedComparisons}
+                  {completedComparisons > 9 ? '9+' : completedComparisons}
                 </div>
               )}
             </div>

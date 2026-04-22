@@ -19,9 +19,11 @@ export default function DuelInviteModal({
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleCreateDuel = async () => {
     setIsCreating(true)
+    setError(null)
     try {
       const songPoolIds = tracks.map((t) => t.id)
       const { shareUrl } = await createDuelSession(songPoolIds, {
@@ -29,9 +31,9 @@ export default function DuelInviteModal({
         coverImage: tracks[0]?.coverImage,
       })
       setShareUrl(shareUrl)
-    } catch (error) {
-      console.error('Failed to create duel:', error)
-      alert('Failed to create duel challenge. Please try again.')
+    } catch (err) {
+      console.error('Failed to create duel:', err)
+      setError('Failed to create duel challenge. Please try again.')
     } finally {
       setIsCreating(false)
     }
@@ -78,7 +80,7 @@ export default function DuelInviteModal({
 
   return (
     <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
-      <div className='bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-white/10'>
+      <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/20'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div className='flex items-center gap-3'>
@@ -118,11 +120,18 @@ export default function DuelInviteModal({
               </div>
             </div>
 
+            {/* Error */}
+            {error && (
+              <div className='bg-red-600/20 border border-red-500/30 rounded-lg p-3 mb-4'>
+                <p className='text-sm text-red-200'>{error}</p>
+              </div>
+            )}
+
             {/* Create Button */}
             <button
               onClick={handleCreateDuel}
               disabled={isCreating}
-              className='w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2'
+              className='w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
             >
               {isCreating ? (
                 <>
