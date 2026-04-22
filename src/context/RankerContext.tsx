@@ -18,12 +18,15 @@ interface RankerContextValue {
   confidence: number
   completedComparisons: number
   isComplete: boolean
+  canUndo: boolean
 
   // Actions
   initializeRanker: (tracks: Track[]) => void
   submitVote: (feedback: Feedback) => void
   resetRanker: () => void
   forceFinish: () => void
+  undoLastVote: () => void
+  restartRanker: () => void
 }
 
 const RankerContext = createContext<RankerContextValue | null>(null)
@@ -32,6 +35,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
   const [ranker, setRanker] = useState<PlaylistRanker | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [currentPair, setCurrentPair] = useState<[Track, Track] | null>(null)
+  const [pairHistory, setPairHistory] = useState<[Track, Track][]>([])
   const [rankings, setRankings] = useState<SongRanking[]>([])
   const [confidence, setConfidence] = useState(0)
   const [completedComparisons, setCompletedComparisons] = useState(0)
@@ -49,6 +53,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     setTracks(trackList)
     setCompletedComparisons(0)
     setIsComplete(false)
+    setPairHistory([])
 
     // Get first pair
     const pair = newRanker.getNextPair()
@@ -70,6 +75,9 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
       if (!ranker || !currentPair) return
 
       const [trackA, trackB] = currentPair
+
+      // Push current pair onto history stack before advancing (enables undo)
+      setPairHistory((prev) => [...prev, currentPair])
 
       // Record the vote
       ranker.addSwipe(trackA.id, trackB.id, feedback)
@@ -124,11 +132,30 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     setRanker(null)
     setTracks([])
     setCurrentPair(null)
+    setPairHistory([])
     setRankings([])
     setConfidence(0)
     setCompletedComparisons(0)
     setIsComplete(false)
   }, [])
+
+  const undoLastVote = useCallback(() => {
+    if (!ranker || pairHistory.length === 0) return
+
+    ranker.undoLastComparison()
+    const previousPair = pairHistory[pairHistory.length - 1]
+    setPairHistory((prev) => prev.slice(0, -1))
+    setCurrentPair(previousPair)
+    setCompletedComparisons((c) => Math.max(0, c - 1))
+    setIsComplete(false)
+    setRankings(ranker.computeRankings())
+    setConfidence(ranker.getConfidence())
+  }, [ranker, pairHistory])
+
+  const restartRanker = useCallback(() => {
+    if (tracks.length === 0) return
+    initializeRanker(tracks)
+  }, [tracks, initializeRanker])
 
   // Persist state to sessionStorage
   useEffect(() => {
@@ -181,6 +208,8 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const canUndo = completedComparisons > 0
+
   const value: RankerContextValue = {
     ranker,
     tracks,
@@ -189,10 +218,13 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     confidence,
     completedComparisons,
     isComplete,
+    canUndo,
     initializeRanker,
     submitVote,
     resetRanker,
     forceFinish,
+    undoLastVote,
+    restartRanker,
   }
 
   return (
