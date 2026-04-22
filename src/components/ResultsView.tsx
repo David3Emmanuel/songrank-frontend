@@ -20,12 +20,12 @@ export default function ResultsView() {
     .filter((r) => r.track)
 
   return (
-    <div className='min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8'>
+    <div className='min-h-screen bg-slate-900 text-white p-4 md:p-8'>
       <div className='max-w-4xl mx-auto'>
         {/* Header */}
         <div className='text-center mb-8'>
-          <div className='inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500 mb-4'>
-            <Trophy size={40} className='text-slate-900' />
+          <div className='inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/30 mb-4'>
+            <Trophy size={40} className='text-yellow-400' />
           </div>
           <h1 className='text-4xl font-bold mb-2'>Your Rankings</h1>
           <p className='text-white/70'>
@@ -35,9 +35,13 @@ export default function ResultsView() {
 
         {/* Action Buttons */}
         <div className='flex flex-wrap gap-3 justify-center mb-8'>
-          <button className='flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-lg font-semibold transition-colors'>
+          <button
+            disabled
+            title='Coming soon'
+            className='flex items-center gap-2 bg-white/5 border border-white/20 text-white/40 px-6 py-3 rounded-lg font-semibold cursor-not-allowed'
+          >
             <Download size={20} />
-            Export to Spotify
+            Export to Spotify (Coming Soon)
           </button>
           <button
             onClick={() => setShowShareModal(true)}
