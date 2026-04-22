@@ -59,7 +59,7 @@ export default function YouTubeImportModal({
 
   return (
     <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
-      <div className='bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-white/10'>
+      <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/20'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div className='flex items-center gap-3'>
