@@ -20,6 +20,7 @@ const DEMO_TRACKS: Track[] = [
       'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b',
+      youtube: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ',
     },
   },
   {
@@ -32,6 +33,7 @@ const DEMO_TRACKS: Track[] = [
       'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/5QO79kh1waicV47BqGRL3g',
+      youtube: 'https://www.youtube.com/watch?v=XXYlFuWEuKI',
     },
   },
   {
@@ -44,6 +46,7 @@ const DEMO_TRACKS: Track[] = [
       'https://i.scdn.co/image/ab67616d0000b273fc59e9108992c0c446e72e5c',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/39LLxExYz6ewLAcYrzQQyP',
+      youtube: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw',
     },
   },
   {
@@ -56,6 +59,7 @@ const DEMO_TRACKS: Track[] = [
       'https://i.scdn.co/image/ab67616d0000b273a91c10fe9472d9bd89802e5a',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/4ZtFanR9U6ndgddUvNcjcG',
+      youtube: 'https://www.youtube.com/watch?v=gNi_6U5Pm_o',
     },
   },
   {
@@ -68,6 +72,7 @@ const DEMO_TRACKS: Track[] = [
       'https://i.scdn.co/image/ab67616d0000b27369a3fae1c6b9cb4e15ecf329',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/02MWAaffLxlfxAUY7c5dvx',
+      youtube: 'https://www.youtube.com/watch?v=mRD0-GxqHVo',
     },
   },
 ]
