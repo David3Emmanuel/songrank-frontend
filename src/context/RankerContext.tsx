@@ -14,6 +14,7 @@ interface RankerContextValue {
   ranker: PlaylistRanker | null
   tracks: Track[]
   currentPair: [Track, Track] | null
+  nextPair: [Track, Track] | null
   rankings: SongRanking[]
   confidence: number
   completedComparisons: number
@@ -35,11 +36,27 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
   const [ranker, setRanker] = useState<PlaylistRanker | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [currentPair, setCurrentPair] = useState<[Track, Track] | null>(null)
+  const [nextPair, setNextPair] = useState<[Track, Track] | null>(null)
   const [pairHistory, setPairHistory] = useState<[Track, Track][]>([])
   const [rankings, setRankings] = useState<SongRanking[]>([])
   const [confidence, setConfidence] = useState(0)
   const [completedComparisons, setCompletedComparisons] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
+
+  // Speculatively peek one pair ahead so we can preload audio early.
+  // The prediction won't always match the real next pair (state changes after
+  // each vote), but it warms up the CDN connection and YouTube player enough
+  // to meaningfully reduce buffering on the following pair.
+  const peekNextPair = useCallback(
+    (r: PlaylistRanker, trackList: Track[]) => {
+      const ids = r.getNextPair()
+      if (!ids) { setNextPair(null); return }
+      const nA = trackList.find((t) => t.id === ids[0])
+      const nB = trackList.find((t) => t.id === ids[1])
+      setNextPair(nA && nB ? [nA, nB] : null)
+    },
+    [],
+  )
 
   const initializeRanker = useCallback((trackList: Track[]) => {
     if (trackList.length < 2) {
@@ -62,13 +79,14 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
       const trackB = trackList.find((t) => t.id === pair[1])
       if (trackA && trackB) {
         setCurrentPair([trackA, trackB])
+        peekNextPair(newRanker, trackList)
       }
     }
 
     // Initial rankings
     setRankings(newRanker.computeRankings())
     setConfidence(newRanker.getConfidence())
-  }, [])
+  }, [peekNextPair])
 
   const submitVote = useCallback(
     (feedback: Feedback) => {
@@ -101,22 +119,25 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Get next pair
-      const nextPair = ranker.getNextPair()
-      if (nextPair) {
-        const nextTrackA = tracks.find((t) => t.id === nextPair[0])
-        const nextTrackB = tracks.find((t) => t.id === nextPair[1])
+      const nextIds = ranker.getNextPair()
+      if (nextIds) {
+        const nextTrackA = tracks.find((t) => t.id === nextIds[0])
+        const nextTrackB = tracks.find((t) => t.id === nextIds[1])
         if (nextTrackA && nextTrackB) {
           setCurrentPair([nextTrackA, nextTrackB])
+          peekNextPair(ranker, tracks)
         } else {
           setIsComplete(true)
           setCurrentPair(null)
+          setNextPair(null)
         }
       } else {
         setIsComplete(true)
         setCurrentPair(null)
+        setNextPair(null)
       }
     },
-    [ranker, currentPair, tracks],
+    [ranker, currentPair, tracks, peekNextPair],
   )
 
   const forceFinish = useCallback(() => {
@@ -132,6 +153,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     setRanker(null)
     setTracks([])
     setCurrentPair(null)
+    setNextPair(null)
     setPairHistory([])
     setRankings([])
     setConfidence(0)
@@ -146,6 +168,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     const previousPair = pairHistory[pairHistory.length - 1]
     setPairHistory((prev) => prev.slice(0, -1))
     setCurrentPair(previousPair)
+    setNextPair(null) // speculative next is stale after undo
     setCompletedComparisons((c) => Math.max(0, c - 1))
     setIsComplete(false)
     setRankings(ranker.computeRankings())
@@ -214,6 +237,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     ranker,
     tracks,
     currentPair,
+    nextPair,
     rankings,
     confidence,
     completedComparisons,
