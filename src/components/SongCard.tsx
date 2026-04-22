@@ -35,6 +35,8 @@ export default function SongCard({
   const [volume, setVolume] = useState(0.5)
   const [isStrong, setIsStrong] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
 
   const playerRef = useRef<YouTubePlayer | null>(null)
 
@@ -49,6 +51,19 @@ export default function SongCard({
     },
   }
 
+  // Reset loading/error state whenever the video ID changes (react-youtube
+  // reuses the existing iframe and calls loadVideoById, so onReady won't fire
+  // again — we have to reset manually here).
+  const videoId = track.externalUrls?.youtube
+    ? track.externalUrls.youtube.split('v=')[1]?.split('&')[0] || track.id
+    : track.id
+
+  useEffect(() => {
+    setIsLoading(true)
+    setHasError(false)
+    setIsPlaying(false)
+  }, [videoId])
+
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target
     event.target.setVolume(volume * 100)
@@ -56,7 +71,17 @@ export default function SongCard({
   }
 
   const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
-    setIsPlaying(event.data === 1)
+    // YouTube IFrame API states: -1 unstarted, 1 playing, 2 paused,
+    // 3 buffering, 5 video cued
+    const state = event.data
+    setIsPlaying(state === 1)
+    setIsLoading(state === -1 || state === 3)
+    if (state === 1) setHasError(false)
+  }
+
+  const onPlayerError: YouTubeProps['onError'] = () => {
+    setIsLoading(false)
+    setHasError(true)
   }
 
   // Clean up player on unmount
@@ -129,11 +154,6 @@ export default function SongCard({
     registerUpdateHandler(handleUpdate)
   }, [registerUpdateHandler, side])
 
-  // Extract YouTube video ID from track
-  const videoId = track.externalUrls?.youtube
-    ? track.externalUrls.youtube.split('v=')[1]?.split('&')[0] || track.id
-    : track.id
-
   return (
     <>
       {/* Hidden YouTube Player */}
@@ -146,6 +166,7 @@ export default function SongCard({
           opts={opts}
           onReady={onPlayerReady}
           onStateChange={onPlayerStateChange}
+          onError={onPlayerError}
         />
       </div>
 
@@ -177,6 +198,23 @@ export default function SongCard({
             />
           ) : (
             <Music className='w-16 h-16 text-white/30' />
+          )}
+
+          {/* Loading Spinner */}
+          {isLoading && !hasError && (
+            <div className='absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl'>
+              <div className='w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+            </div>
+          )}
+
+          {/* Error Overlay */}
+          {hasError && (
+            <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl gap-1'>
+              <span className='text-2xl'>⚠️</span>
+              <span className='text-white/60 text-xs text-center px-3 leading-tight'>
+                Audio unavailable
+              </span>
+            </div>
           )}
 
           {/* Audio Visualizer */}
