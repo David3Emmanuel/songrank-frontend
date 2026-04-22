@@ -96,14 +96,14 @@ function DashboardContent() {
 
   // Show dashboard
   return (
-    <div className='min-h-screen bg-linear-to-br from-purple-900 via-slate-900 to-indigo-900 text-white flex items-center justify-center p-4'>
+    <div className='min-h-screen bg-slate-900 text-white flex items-center justify-center p-4'>
       <div className='max-w-2xl w-full'>
         {/* Hero Section */}
         <div className='text-center mb-12'>
-          <div className='inline-flex items-center justify-center w-24 h-24 rounded-full bg-linear-to-br from-emerald-400 to-blue-500 mb-6 shadow-2xl'>
+          <div className='inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/30 mb-6'>
             <Music2 size={48} className='text-white' />
           </div>
-          <h1 className='text-6xl font-bold mb-4 bg-linear-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent'>
+          <h1 className='text-6xl font-bold mb-4 text-white'>
             SongRank
           </h1>
           <p className='text-xl text-white/80 mb-2'>
@@ -142,7 +142,7 @@ function DashboardContent() {
           {/* Demo Button */}
           <button
             onClick={handleStartDemo}
-            className='w-full bg-linear-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 mb-4 shadow-lg'
+            className='w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl transition-colors mb-4'
           >
             Try Demo (5 Songs)
           </button>
@@ -177,10 +177,6 @@ function DashboardContent() {
           />
         )}
 
-        {/* Footer */}
-        <div className='text-center mt-8 text-white/40 text-sm'>
-          <p>Built with Next.js, TypeScript, and Active Learning</p>
-        </div>
       </div>
     </div>
   )

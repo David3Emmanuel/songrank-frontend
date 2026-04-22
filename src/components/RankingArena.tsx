@@ -5,7 +5,7 @@ import SwipeComparison from '../components/SwipeComparison'
 import SongCard from '../components/SongCard'
 import LiveRankings from '../components/LiveRankings'
 import { List, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function RankingArena() {
   const {
@@ -18,6 +18,15 @@ export default function RankingArena() {
     tracks,
   } = useRanker()
   const [showPause, setShowPause] = useState(false)
+
+  useEffect(() => {
+    if (!showPause) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowPause(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showPause])
 
   if (!currentPair) {
     return null
@@ -64,7 +73,7 @@ export default function RankingArena() {
         {/* Pause Overlay */}
         {showPause && (
           <div className='absolute inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center'>
-            <div className='bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-white/10'>
+            <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-white/20'>
               <h2 className='text-2xl font-bold text-white mb-4'>Paused</h2>
               <p className='text-white/70 mb-6'>
                 You&apos;ve completed {completedComparisons} comparisons.
