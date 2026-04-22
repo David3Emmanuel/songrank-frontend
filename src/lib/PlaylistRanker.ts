@@ -217,38 +217,60 @@ export class PlaylistRanker {
       return [songA, opponent]
     }
 
-    // 2. Refinement: Pair neighbors in the ranking with the SMALLEST gap
+    // 2. Refinement: scored selection over ALL pairs balancing three signals:
+    //    ambiguity  = 1 / (gap + GAP_EPS)          small gap → high priority
+    //    freshness  = exp(-DECAY × timesCompared)   penalise repeated pairs
+    //    interest   = 1 / (avgRankPos + 1)          favour top-ranked songs
     const currentRankings = this.computeRankings()
 
     if (currentRankings.length === 0) {
-      // Fallback: random pair
       return this.randomPair()
     }
 
     const rankedSongs = currentRankings.map((r) => r.Song)
     const scores = currentRankings.map((r) => r.Score)
 
-    // Calculate gaps between adjacent songs
-    const gaps: Array<{ gap: number; idx: number }> = []
+    // Count how many times each unordered pair has been compared
+    const pairCounts = new Map<string, number>()
+    for (const h of this.history) {
+      const key = [h.song_a, h.song_b].sort().join('|')
+      pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1)
+    }
+
+    const DECAY = 0.7   // exp(-0.7) ≈ 0.5: each repeat roughly halves priority
+    const GAP_EPS = 0.1 // prevents ÷0; gap=0 → ambiguity score 10
+
+    type Candidate = { i: number; j: number; priority: number }
+    const candidates: Candidate[] = []
+
     for (let i = 0; i < rankedSongs.length - 1; i++) {
-      const gap = Math.abs(scores[i] - scores[i + 1])
-      gaps.push({ gap, idx: i })
+      for (let j = i + 1; j < rankedSongs.length; j++) {
+        const gap = Math.abs(scores[i] - scores[j])
+        const key = [rankedSongs[i], rankedSongs[j]].sort().join('|')
+        const timesCompared = pairCounts.get(key) ?? 0
+        const avgRank = (i + j) / 2
+
+        const priority =
+          (1 / (gap + GAP_EPS)) *
+          Math.exp(-DECAY * timesCompared) *
+          (1 / (avgRank + 1))
+
+        candidates.push({ i, j, priority })
+      }
     }
 
-    // Sort by smallest gap
-    gaps.sort((a, b) => a.gap - b.gap)
+    // Weighted random selection (softmax-style)
+    const total = candidates.reduce((s, c) => s + c.priority, 0)
+    if (total === 0) return this.randomPair()
 
-    // Pick from the top 3 closest pairs for variety
-    const bestCandidates = gaps.slice(0, 3)
-    if (bestCandidates.length === 0) {
-      return this.randomPair()
+    let rand = Math.random() * total
+    for (const c of candidates) {
+      rand -= c.priority
+      if (rand <= 0) return [rankedSongs[c.i], rankedSongs[c.j]]
     }
 
-    const selected =
-      bestCandidates[Math.floor(Math.random() * bestCandidates.length)]
-    const idx = selected.idx
-
-    return [rankedSongs[idx], rankedSongs[idx + 1]]
+    // Fallback for floating-point edge case
+    return [rankedSongs[0], rankedSongs[1]]
   }
 
   /**
