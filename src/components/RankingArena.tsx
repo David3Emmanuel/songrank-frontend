@@ -16,17 +16,23 @@ export default function RankingArena() {
     forceFinish,
     rankings,
     tracks,
+    undoLastVote,
+    restartRanker,
+    canUndo,
   } = useRanker()
   const [showPause, setShowPause] = useState(false)
 
   useEffect(() => {
-    if (!showPause) return
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowPause(false)
+      if (e.key === 'Escape') setShowPause((v) => !v)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && canUndo) {
+        e.preventDefault()
+        undoLastVote()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showPause])
+  }, [canUndo, undoLastVote])
 
   if (!currentPair) {
     return null
@@ -93,6 +99,32 @@ export default function RankingArena() {
                   className='w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors'
                 >
                   Resume Ranking
+                </button>
+                <button
+                  onClick={() => {
+                    undoLastVote()
+                    setShowPause(false)
+                  }}
+                  disabled={!canUndo}
+                  className='w-full bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors text-left px-4'
+                >
+                  ↩ Undo Last Swipe
+                  {canUndo && (
+                    <span className='float-right text-white/50 text-xs font-normal mt-0.5'>
+                      Ctrl+Z
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Restart ranking? All comparisons will be cleared.')) {
+                      restartRanker()
+                      setShowPause(false)
+                    }
+                  }}
+                  className='w-full bg-red-500/20 hover:bg-red-500/40 text-white font-semibold py-3 rounded-lg transition-colors text-left px-4'
+                >
+                  ↺ Restart from Scratch
                 </button>
                 <button
                   onClick={() => {
