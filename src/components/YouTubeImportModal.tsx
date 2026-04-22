@@ -2,10 +2,6 @@
 
 import { useState } from 'react'
 import { X, Youtube, Link as LinkIcon, Loader2 } from 'lucide-react'
-import {
-  YouTubeAdapter,
-  extractYouTubePlaylistId,
-} from '../lib/adapters/youtube'
 import type { Track } from '../lib/types'
 
 interface YouTubeImportModalProps {
@@ -18,40 +14,27 @@ export default function YouTubeImportModal({
   onClose,
 }: YouTubeImportModalProps) {
   const [playlistUrl, setPlaylistUrl] = useState('')
-  const [apiKey, setApiKey] = useState(
-    process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || '',
-  )
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleImport = async () => {
     setError(null)
-
-    if (!apiKey.trim()) {
-      setError('YouTube API Key is required')
-      return
-    }
-
-    const playlistId = extractYouTubePlaylistId(playlistUrl)
-    if (!playlistId) {
-      setError('Invalid YouTube playlist URL or ID')
-      return
-    }
-
     setIsLoading(true)
     try {
-      const adapter = new YouTubeAdapter(apiKey)
-      const playlist = await adapter.getPlaylist(playlistId)
+      const res = await fetch(
+        `/api/playlist?id=${encodeURIComponent(playlistUrl.trim())}`,
+      )
+      const data = await res.json()
 
-      if (playlist.tracks.length === 0) {
-        setError('No tracks found in playlist')
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to import playlist')
         return
       }
 
-      onImport(playlist.tracks)
+      onImport(data.tracks)
       onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import playlist')
+    } catch {
+      setError('Failed to import playlist. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -81,28 +64,6 @@ export default function YouTubeImportModal({
 
         {/* Form */}
         <div className='space-y-4'>
-          {/* API Key Input */}
-          <div>
-            <label className='block text-white/80 text-sm font-medium mb-2'>
-              YouTube API Key
-            </label>
-            <input
-              type='text'
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder='Enter your YouTube Data API v3 key'
-              className='w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-red-500 transition-colors'
-            />
-            <a
-              href='https://console.cloud.google.com/apis/credentials'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-xs text-blue-400 hover:text-blue-300 mt-1 inline-block'
-            >
-              Get API Key →
-            </a>
-          </div>
-
           {/* Playlist URL Input */}
           <div>
             <label className='block text-white/80 text-sm font-medium mb-2'>
@@ -112,6 +73,7 @@ export default function YouTubeImportModal({
               type='text'
               value={playlistUrl}
               onChange={(e) => setPlaylistUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && playlistUrl.trim() && handleImport()}
               placeholder='https://youtube.com/playlist?list=...'
               className='w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-red-500 transition-colors'
             />
@@ -127,20 +89,11 @@ export default function YouTubeImportModal({
             </div>
           )}
 
-          {/* Info Box */}
-          <div className='bg-blue-600/20 border border-blue-500/30 rounded-lg p-4'>
-            <p className='text-sm text-blue-200'>
-              <strong>📝 Note:</strong> You need a YouTube Data API v3 key to
-              import playlists. The API is free with 10,000 quota units per day
-              (enough for ~100 playlist imports).
-            </p>
-          </div>
-
           {/* Action Buttons */}
           <div className='flex gap-3 pt-2'>
             <button
               onClick={handleImport}
-              disabled={isLoading || !apiKey.trim() || !playlistUrl.trim()}
+              disabled={isLoading || !playlistUrl.trim()}
               className='flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2'
             >
               {isLoading ? (
