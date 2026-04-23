@@ -82,6 +82,9 @@ export default function RankingArena() {
     EMPTY_SLOT,
     EMPTY_SLOT,
   ])
+  // Mirror of slots readable synchronously in async callbacks (no stale closure)
+  const slotsRef = useRef<SlotState[]>([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])
+
   const slot0Ref = useRef<YouTubePlayer | null>(null)
   const slot1Ref = useRef<YouTubePlayer | null>(null)
   const slot2Ref = useRef<YouTubePlayer | null>(null)
@@ -98,6 +101,13 @@ export default function RankingArena() {
 
   const initialized = useRef(false)
 
+  // Tracks the pair seen by the transition effect so it can distinguish
+  // "first pair arrived" (skip rotation) from "pair changed after a vote"
+  const prevPairRef = useRef<[Track, Track] | null>(null)
+  // Tracks completedComparisons at the last transition so we can tell
+  // forward vote (count went up) from undo (count went down)
+  const prevCompletedInTransitionRef = useRef(0)
+
   // ── Pool helpers ────────────────────────────────────────────────────────────
 
   const updateSlot = useCallback(
@@ -105,6 +115,7 @@ export default function RankingArena() {
       setSlots((prev) => {
         const next = [...prev]
         next[idx] = { ...next[idx], ...patch }
+        slotsRef.current = next   // keep mirror in sync
         return next
       }),
     [],
@@ -132,55 +143,40 @@ export default function RankingArena() {
 
   const handleSlotError = useCallback(
     async (slotIdx: number) => {
-      setSlots((prev) => {
-        const slot = prev[slotIdx]
-        if (!slot.track || slot.isFallback) return prev // already tried or no track
+      const slot = slotsRef.current[slotIdx]
 
-        const next = [...prev]
-        next[slotIdx] = { ...slot, isFallbackLoading: true }
-        return next
-      })
+      // Already tried fallback or no track — mark as error and bail
+      if (!slot.track || slot.isFallback) {
+        updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
+        return
+      }
 
-      // Read current slot synchronously for the fetch
-      setSlots((prev) => {
-        const slot = prev[slotIdx]
-        if (!slot.isFallbackLoading) return prev // guard cleared above already
+      updateSlot(slotIdx, { isFallbackLoading: true })
 
-        const { title, artist } = slot.track!
-        const params = new URLSearchParams({ title, artist })
+      const { title, artist } = slot.track
+      const params = new URLSearchParams({ title, artist })
 
-        fetch(`/api/search?${params}`)
-          .then((r) => r.json())
-          .then(({ videoId }: { videoId: string | null }) => {
-            if (videoId) {
-              const g = activeGroupRef.current
-              const isActive = g === 0 ? slotIdx <= 1 : slotIdx >= 2
-              updateSlot(slotIdx, {
-                videoId,
-                isLoading: true,
-                isFallbackLoading: false,
-                isFallback: true,
-                hasError: false,
-              })
-              if (!isActive) slotRefs[slotIdx].current?.setVolume(0)
-            } else {
-              updateSlot(slotIdx, {
-                isLoading: false,
-                hasError: true,
-                isFallbackLoading: false,
-              })
-            }
+      try {
+        const r = await fetch(`/api/search?${params}`)
+        const { videoId }: { videoId: string | null } = await r.json()
+
+        if (videoId) {
+          const g = activeGroupRef.current
+          const isActive = g === 0 ? slotIdx <= 1 : slotIdx >= 2
+          updateSlot(slotIdx, {
+            videoId,
+            isLoading: true,
+            isFallbackLoading: false,
+            isFallback: true,
+            hasError: false,
           })
-          .catch(() =>
-            updateSlot(slotIdx, {
-              isLoading: false,
-              hasError: true,
-              isFallbackLoading: false,
-            }),
-          )
-
-        return prev // no direct state change here — async path above handles it
-      })
+          if (!isActive) slotRefs[slotIdx].current?.setVolume(0)
+        } else {
+          updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
+        }
+      } catch {
+        updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
+      }
     },
     [updateSlot],
   )
@@ -204,24 +200,53 @@ export default function RankingArena() {
     loadSlot(pR, nextPair[1], true) // preload right (muted)
   }, [nextPair, loadSlot])
 
-  // 3. Pair transition — promotes preloaded slots to active on each vote
+  // 3. Pair transition — promotes preloaded slots to active on each forward
+  //    vote, or reloads active slots directly on undo.
+  //    Skips on the very first pair so the init effect's work is preserved.
   useEffect(() => {
     if (!currentPair || !initialized.current) return
 
-    const newGroup: 0 | 1 = activeGroupRef.current === 0 ? 1 : 0
-    const [aL, aR] = newGroup === 0 ? [0, 1] : [2, 3]
-    const [pL, pR] = newGroup === 0 ? [2, 3] : [0, 1]
+    // First pair: record it and bail — init effect already set up slots 0,1
+    if (!prevPairRef.current) {
+      prevPairRef.current = currentPair
+      prevCompletedInTransitionRef.current = completedComparisons
+      return
+    }
 
-    // Promote: unmute the preloaded pair (they're already buffering)
-    slotRefs[aL].current?.setVolume(50)
-    slotRefs[aR].current?.setVolume(50)
+    // Same pair identity (shouldn't normally happen, but guard anyway)
+    if (
+      prevPairRef.current[0].id === currentPair[0].id &&
+      prevPairRef.current[1].id === currentPair[1].id
+    ) {
+      return
+    }
 
-    // Demote: silence the freed pair (nextPair effect will load new videos)
-    slotRefs[pL].current?.setVolume(0)
-    slotRefs[pR].current?.setVolume(0)
+    const isForward = completedComparisons > prevCompletedInTransitionRef.current
 
-    setActiveGroup(newGroup)
-  }, [currentPair, setActiveGroup])
+    prevPairRef.current = currentPair
+    prevCompletedInTransitionRef.current = completedComparisons
+
+    if (isForward) {
+      // Rotate: promote preloaded pair (they're already buffering)
+      const newGroup: 0 | 1 = activeGroupRef.current === 0 ? 1 : 0
+      const [aL, aR] = newGroup === 0 ? [0, 1] : [2, 3]
+      const [pL, pR] = newGroup === 0 ? [2, 3] : [0, 1]
+
+      slotRefs[aL].current?.setVolume(50)
+      slotRefs[aR].current?.setVolume(50)
+      slotRefs[pL].current?.setVolume(0)
+      slotRefs[pR].current?.setVolume(0)
+
+      setActiveGroup(newGroup)
+    } else {
+      // Undo: reload the currently active slots with the restored pair directly,
+      // no group rotation needed
+      const aL = activeGroupRef.current === 0 ? 0 : 2
+      const aR = activeGroupRef.current === 0 ? 1 : 3
+      loadSlot(aL, currentPair[0], false)
+      loadSlot(aR, currentPair[1], false)
+    }
+  }, [currentPair, completedComparisons, setActiveGroup, loadSlot])
 
   // 4. Per-slot state change handler
   const handleSlotStateChange = useCallback(
@@ -251,8 +276,12 @@ export default function RankingArena() {
       currentPair
     ) {
       initialized.current = false
+      prevPairRef.current = null
+      prevCompletedInTransitionRef.current = 0
       setActiveGroup(0)
-      setSlots([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])
+      const empty: SlotState[] = [EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]
+      slotsRef.current = empty
+      setSlots(empty)
     }
     prevCompletedRef.current = completedComparisons
   }, [completedComparisons, currentPair, setActiveGroup])
