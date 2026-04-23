@@ -8,6 +8,7 @@ import YouTube, { type YouTubePlayer } from '../lib/youtube'
 import type { Track } from '../lib/types'
 import { List, X } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import type { YouTubeEvent } from 'react-youtube'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,10 @@ export default function RankingArena() {
   // Slots 0,1 = group-0 pair   Slots 2,3 = group-1 pair
   // activeGroup determines which pair the user currently sees.
   const [slots, setSlots] = useState<SlotState[]>([
-    EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT,
+    EMPTY_SLOT,
+    EMPTY_SLOT,
+    EMPTY_SLOT,
+    EMPTY_SLOT,
   ])
   const slot0Ref = useRef<YouTubePlayer | null>(null)
   const slot1Ref = useRef<YouTubePlayer | null>(null)
@@ -130,7 +134,7 @@ export default function RankingArena() {
     async (slotIdx: number) => {
       setSlots((prev) => {
         const slot = prev[slotIdx]
-        if (!slot.track || slot.isFallback) return prev  // already tried or no track
+        if (!slot.track || slot.isFallback) return prev // already tried or no track
 
         const next = [...prev]
         next[slotIdx] = { ...slot, isFallbackLoading: true }
@@ -140,7 +144,7 @@ export default function RankingArena() {
       // Read current slot synchronously for the fetch
       setSlots((prev) => {
         const slot = prev[slotIdx]
-        if (!slot.isFallbackLoading) return prev  // guard cleared above already
+        if (!slot.isFallbackLoading) return prev // guard cleared above already
 
         const { title, artist } = slot.track!
         const params = new URLSearchParams({ title, artist })
@@ -175,7 +179,7 @@ export default function RankingArena() {
             }),
           )
 
-        return prev  // no direct state change here — async path above handles it
+        return prev // no direct state change here — async path above handles it
       })
     },
     [updateSlot],
@@ -186,8 +190,8 @@ export default function RankingArena() {
   // 1. Init — runs once when the first currentPair arrives
   useEffect(() => {
     if (!currentPair || initialized.current) return
-    loadSlot(0, currentPair[0], false)  // active left  (unmuted)
-    loadSlot(1, currentPair[1], false)  // active right (unmuted)
+    loadSlot(0, currentPair[0], false) // active left  (unmuted)
+    loadSlot(1, currentPair[1], false) // active right (unmuted)
     // Slots 2 & 3 are populated by the nextPair effect below in the same render
     initialized.current = true
   }, [currentPair, loadSlot])
@@ -196,8 +200,8 @@ export default function RankingArena() {
   useEffect(() => {
     if (!nextPair || !initialized.current) return
     const [pL, pR] = activeGroupRef.current === 0 ? [2, 3] : [0, 1]
-    loadSlot(pL, nextPair[0], true)   // preload left  (muted)
-    loadSlot(pR, nextPair[1], true)   // preload right (muted)
+    loadSlot(pL, nextPair[0], true) // preload left  (muted)
+    loadSlot(pR, nextPair[1], true) // preload right (muted)
   }, [nextPair, loadSlot])
 
   // 3. Pair transition — promotes preloaded slots to active on each vote
@@ -269,13 +273,13 @@ export default function RankingArena() {
   if (!currentPair) return null
 
   // ── Derive active refs & states for the visible pair ───────────────────────
-  const activeLeftIdx  = activeGroup === 0 ? 0 : 2
+  const activeLeftIdx = activeGroup === 0 ? 0 : 2
   const activeRightIdx = activeGroup === 0 ? 1 : 3
 
-  const leftPlayerRef  = slotRefs[activeLeftIdx]
+  const leftPlayerRef = slotRefs[activeLeftIdx]
   const rightPlayerRef = slotRefs[activeRightIdx]
 
-  const leftState  = slots[activeLeftIdx]
+  const leftState = slots[activeLeftIdx]
   const rightState = slots[activeRightIdx]
 
   const [trackA, trackB] = currentPair
@@ -289,7 +293,7 @@ export default function RankingArena() {
             <YouTube
               videoId={slot.videoId}
               opts={PLAYER_OPTS}
-              onReady={(e) => {
+              onReady={(e: YouTubeEvent) => {
                 slotRefs[i].current = e.target
                 // Set initial volume based on whether this slot is active
                 const g = activeGroupRef.current
@@ -297,7 +301,9 @@ export default function RankingArena() {
                 e.target.setVolume(isActive ? 50 : 0)
                 e.target.playVideo()
               }}
-              onStateChange={(e) => handleSlotStateChange(i, e.data)}
+              onStateChange={(e: YouTubeEvent) =>
+                handleSlotStateChange(i, e.data)
+              }
               onError={() => handleSlotError(i)}
             />
           </div>
@@ -363,7 +369,10 @@ export default function RankingArena() {
                   Resume Ranking
                 </button>
                 <button
-                  onClick={() => { undoLastVote(); setShowPause(false) }}
+                  onClick={() => {
+                    undoLastVote()
+                    setShowPause(false)
+                  }}
                   disabled={!canUndo}
                   className='w-full bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors text-left px-4'
                 >
@@ -376,7 +385,11 @@ export default function RankingArena() {
                 </button>
                 <button
                   onClick={() => {
-                    if (confirm('Restart ranking? All comparisons will be cleared.')) {
+                    if (
+                      confirm(
+                        'Restart ranking? All comparisons will be cleared.',
+                      )
+                    ) {
                       restartRanker()
                       setShowPause(false)
                     }
@@ -386,7 +399,10 @@ export default function RankingArena() {
                   ↺ Restart from Scratch
                 </button>
                 <button
-                  onClick={() => { setShowPause(false); forceFinish() }}
+                  onClick={() => {
+                    setShowPause(false)
+                    forceFinish()
+                  }}
                   className='w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors'
                 >
                   Finish & View Results
