@@ -5,7 +5,7 @@ import { X, Youtube, Link as LinkIcon, Loader2 } from 'lucide-react'
 import type { Track } from '../lib/types'
 
 interface YouTubeImportModalProps {
-  onImport: (tracks: Track[]) => void
+  onImport: (tracks: Track[], name?: string) => void
   onClose: () => void
 }
 
@@ -31,7 +31,7 @@ export default function YouTubeImportModal({
         return
       }
 
-      onImport(data.tracks)
+      onImport(data.tracks, data.name ?? '')
       onClose()
     } catch {
       setError('Failed to import playlist. Please try again.')
