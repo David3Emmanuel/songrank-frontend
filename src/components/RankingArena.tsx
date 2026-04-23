@@ -182,6 +182,11 @@ export default function RankingArena() {
   )
 
   // ── Pool effects (declaration order = execution order within a render) ───────
+  //
+  // Correct order:
+  //   1. Init          — loads slots 0,1 for the very first pair
+  //   2. Transition    — rotates activeGroupRef BEFORE nextPair preload reads it
+  //   3. nextPair pre  — reads the now-updated activeGroupRef to target freed slots
 
   // 1. Init — runs once when the first currentPair arrives
   useEffect(() => {
@@ -192,17 +197,10 @@ export default function RankingArena() {
     initialized.current = true
   }, [currentPair, loadSlot])
 
-  // 2. nextPair preload — keeps the idle slots warm with the upcoming pair
-  useEffect(() => {
-    if (!nextPair || !initialized.current) return
-    const [pL, pR] = activeGroupRef.current === 0 ? [2, 3] : [0, 1]
-    loadSlot(pL, nextPair[0], true) // preload left  (muted)
-    loadSlot(pR, nextPair[1], true) // preload right (muted)
-  }, [nextPair, loadSlot])
-
-  // 3. Pair transition — promotes preloaded slots to active on each forward
+  // 2. Pair transition — promotes preloaded slots to active on each forward
   //    vote, or reloads active slots directly on undo.
-  //    Skips on the very first pair so the init effect's work is preserved.
+  //    Must run BEFORE the nextPair preload effect so activeGroupRef is
+  //    already rotated when the preload effect reads it.
   useEffect(() => {
     if (!currentPair || !initialized.current) return
 
@@ -247,6 +245,16 @@ export default function RankingArena() {
       loadSlot(aR, currentPair[1], false)
     }
   }, [currentPair, completedComparisons, setActiveGroup, loadSlot])
+
+  // 3. nextPair preload — keeps the idle slots warm with the upcoming pair.
+  //    Runs AFTER the transition effect so activeGroupRef reflects the new
+  //    group and we load into the just-freed (not just-promoted) slots.
+  useEffect(() => {
+    if (!nextPair || !initialized.current) return
+    const [pL, pR] = activeGroupRef.current === 0 ? [2, 3] : [0, 1]
+    loadSlot(pL, nextPair[0], true) // preload left  (muted)
+    loadSlot(pR, nextPair[1], true) // preload right (muted)
+  }, [nextPair, loadSlot])
 
   // 4. Per-slot state change handler
   const handleSlotStateChange = useCallback(
