@@ -82,11 +82,11 @@ function DashboardContent() {
   const [showYouTubeImport, setShowYouTubeImport] = useState(false)
 
   const handleStartDemo = () => {
-    initializeRanker(DEMO_TRACKS)
+    initializeRanker(DEMO_TRACKS, 'Demo Mix')
   }
 
-  const handleYouTubeImport = (tracks: Track[]) => {
-    initializeRanker(tracks)
+  const handleYouTubeImport = (tracks: Track[], name?: string) => {
+    initializeRanker(tracks, name || 'YouTube Playlist')
   }
 
   // Show results if complete

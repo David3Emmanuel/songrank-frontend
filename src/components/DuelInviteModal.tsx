@@ -83,13 +83,11 @@ export default function DuelInviteModal({
       <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/20'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
-          <div className='flex items-center gap-3'>
-            <div className='w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center'>
-              <Users size={24} className='text-white' />
-            </div>
-            <h2 className='text-2xl font-bold text-white'>
-              Challenge a Friend
-            </h2>
+          <div>
+            <h2 className='text-xl font-bold text-white'>Challenge a Friend</h2>
+            {playlistName && (
+              <p className='text-white/50 text-sm mt-0.5'>{playlistName}</p>
+            )}
           </div>
           <button
             onClick={onClose}

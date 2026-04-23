@@ -8,7 +8,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 
 export default function ResultsView() {
-  const { rankings, tracks, completedComparisons, resetRanker } = useRanker()
+  const { rankings, tracks, playlistName, completedComparisons, resetRanker } = useRanker()
   const [showShareModal, setShowShareModal] = useState(false)
   const [showDuelModal, setShowDuelModal] = useState(false)
 
@@ -28,7 +28,10 @@ export default function ResultsView() {
             <Trophy size={40} className='text-yellow-400' />
           </div>
           <h1 className='text-4xl font-bold mb-2'>Your Rankings</h1>
-          <p className='text-white/70'>
+          {playlistName && (
+            <p className='text-white/80 text-lg font-medium mb-1'>{playlistName}</p>
+          )}
+          <p className='text-white/50 text-sm'>
             Based on {completedComparisons} comparisons
           </p>
         </div>
@@ -137,16 +140,15 @@ export default function ResultsView() {
         <ShareCardModal
           rankings={rankings}
           tracks={tracks}
-          playlistName='My Ranked Playlist'
+          playlistName={playlistName}
           onClose={() => setShowShareModal(false)}
         />
       )}
 
-      {/* Duel Invite Modal */}
       {showDuelModal && (
         <DuelInviteModal
           tracks={tracks}
-          playlistName='My Ranked Playlist'
+          playlistName={playlistName}
           onClose={() => setShowDuelModal(false)}
         />
       )}

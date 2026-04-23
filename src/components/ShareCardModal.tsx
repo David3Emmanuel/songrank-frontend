@@ -77,7 +77,12 @@ export default function ShareCardModal({
       <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full border border-white/20 my-8'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
-          <h2 className='text-2xl font-bold text-white'>Create Share Card</h2>
+          <div>
+            <h2 className='text-xl font-bold text-white'>Share your rankings</h2>
+            {playlistName && (
+              <p className='text-white/50 text-sm mt-0.5'>{playlistName}</p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className='w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'

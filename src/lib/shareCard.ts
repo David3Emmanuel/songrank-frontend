@@ -45,12 +45,13 @@ export async function generateShareCard(
   ctx.fillStyle = textColor
   ctx.font = 'bold 72px sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('🎵 My Top Songs', width / 2, 150)
+  const titleText = playlistName || `My Top ${config.top_n}`
+  ctx.fillText(titleText, width / 2, 150)
 
-  // Playlist name
-  ctx.font = '48px sans-serif'
-  ctx.fillStyle = config.theme === 'dark' ? '#ffffff99' : '#00000099'
-  ctx.fillText(playlistName, width / 2, 220)
+  // Subtitle
+  ctx.font = '42px sans-serif'
+  ctx.fillStyle = mutedColor
+  ctx.fillText(`Top ${config.top_n} Songs`, width / 2, 218)
 
   // Draw top tracks
   const startY = 320

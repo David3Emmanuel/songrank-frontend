@@ -13,6 +13,7 @@ import type { Track, Feedback, RankerState, SongRanking } from '../lib/types'
 interface RankerContextValue {
   ranker: PlaylistRanker | null
   tracks: Track[]
+  playlistName: string
   currentPair: [Track, Track] | null
   nextPair: [Track, Track] | null
   rankings: SongRanking[]
@@ -22,7 +23,7 @@ interface RankerContextValue {
   canUndo: boolean
 
   // Actions
-  initializeRanker: (tracks: Track[]) => void
+  initializeRanker: (tracks: Track[], playlistName?: string) => void
   submitVote: (feedback: Feedback) => void
   resetRanker: () => void
   forceFinish: () => void
@@ -35,6 +36,7 @@ const RankerContext = createContext<RankerContextValue | null>(null)
 export function RankerProvider({ children }: { children: React.ReactNode }) {
   const [ranker, setRanker] = useState<PlaylistRanker | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
+  const [playlistName, setPlaylistName] = useState('')
   const [currentPair, setCurrentPair] = useState<[Track, Track] | null>(null)
   const [nextPair, setNextPair] = useState<[Track, Track] | null>(null)
   const [pairHistory, setPairHistory] = useState<[Track, Track][]>([])
@@ -58,7 +60,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
-  const initializeRanker = useCallback((trackList: Track[]) => {
+  const initializeRanker = useCallback((trackList: Track[], name?: string) => {
     if (trackList.length < 2) {
       throw new Error('Need at least 2 tracks to rank')
     }
@@ -68,6 +70,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
 
     setRanker(newRanker)
     setTracks(trackList)
+    setPlaylistName(name ?? '')
     setCompletedComparisons(0)
     setIsComplete(false)
     setPairHistory([])
@@ -177,8 +180,8 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
 
   const restartRanker = useCallback(() => {
     if (tracks.length === 0) return
-    initializeRanker(tracks)
-  }, [tracks, initializeRanker])
+    initializeRanker(tracks, playlistName)
+  }, [tracks, playlistName, initializeRanker])
 
   // Persist state to sessionStorage
   useEffect(() => {
@@ -186,13 +189,14 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
       const state = {
         rankerState: ranker.exportState(),
         tracks,
+        playlistName,
         completedComparisons,
         confidence,
         isComplete,
       }
       sessionStorage.setItem('songrank-session', JSON.stringify(state))
     }
-  }, [ranker, tracks, completedComparisons, confidence, isComplete])
+  }, [ranker, tracks, playlistName, completedComparisons, confidence, isComplete])
 
   // Restore state on mount
   useEffect(() => {
@@ -208,6 +212,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
 
         setRanker(restoredRanker)
         setTracks(parsed.tracks)
+        setPlaylistName(parsed.playlistName ?? '')
         setCompletedComparisons(parsed.completedComparisons)
         setConfidence(parsed.confidence)
         setIsComplete(parsed.isComplete)
@@ -236,6 +241,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
   const value: RankerContextValue = {
     ranker,
     tracks,
+    playlistName,
     currentPair,
     nextPair,
     rankings,
