@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Copy, Check, Link as LinkIcon, X } from 'lucide-react'
+import { Copy, Check, Link as LinkIcon, X } from 'lucide-react'
 import { createDuelSession } from '../lib/duelApi'
 import type { Track } from '../lib/types'
 
