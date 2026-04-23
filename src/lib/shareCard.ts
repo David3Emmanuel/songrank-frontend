@@ -29,19 +29,18 @@ export async function generateShareCard(
   // Background
   const gradient = ctx.createLinearGradient(0, 0, width, height)
   if (config.theme === 'dark') {
-    gradient.addColorStop(0, '#1e1b4b') // indigo-900
-    gradient.addColorStop(0.5, '#0f172a') // slate-900
-    gradient.addColorStop(1, '#581c87') // purple-900
+    gradient.addColorStop(0, '#000000')
+    gradient.addColorStop(1, '#1a1a2e')
   } else {
-    gradient.addColorStop(0, '#fef3c7') // amber-100
-    gradient.addColorStop(0.5, '#fce7f3') // pink-100
-    gradient.addColorStop(1, '#ddd6fe') // violet-200
+    gradient.addColorStop(0, '#ffffff')
+    gradient.addColorStop(1, '#f0f0f0')
   }
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
 
   // Title
-  const textColor = config.theme === 'dark' ? '#ffffff' : '#000000'
+  const textColor = config.theme === 'dark' ? '#ffffff' : '#1a1a1a'
+  const mutedColor = config.theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
   ctx.fillStyle = textColor
   ctx.font = 'bold 72px sans-serif'
   ctx.textAlign = 'center'
@@ -105,7 +104,7 @@ export async function generateShareCard(
     ctx.fillText(titleText, textX, y + 80)
 
     ctx.font = '36px sans-serif'
-    ctx.fillStyle = config.theme === 'dark' ? '#ffffff99' : '#00000099'
+    ctx.fillStyle = mutedColor
     const artistText = truncateText(ctx, track.artist, maxTextWidth)
     ctx.fillText(artistText, textX, y + 130)
 
@@ -119,10 +118,10 @@ export async function generateShareCard(
 
   // Footer/Watermark
   const footerY = config.format === '9:16' ? height - 100 : height - 80
-  ctx.font = 'bold 40px sans-serif'
-  ctx.fillStyle = config.theme === 'dark' ? '#ffffff60' : '#00000060'
+  ctx.font = '36px sans-serif'
+  ctx.fillStyle = mutedColor
   ctx.textAlign = 'center'
-  ctx.fillText('Created with SongRank', width / 2, footerY)
+  ctx.fillText('songrank.app', width / 2, footerY)
 
   return canvas.toDataURL('image/png')
 }
