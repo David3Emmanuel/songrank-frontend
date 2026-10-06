@@ -31,6 +31,7 @@ import {
 } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 import { sessionProgress } from '../lib/sessionProgress'
+import { isSameSong } from '../lib/alternatives'
 import { OFFSCREEN, PLAYER_OPTS } from '../lib/playerOptions'
 import { List, ListChecks, Pause, Play, RotateCcw, Undo2, X } from 'lucide-react'
 import {
@@ -292,8 +293,18 @@ export default function RankingArena() {
   // Tracks completedComparisons at the last transition so we can tell
   // forward vote (count went up) from undo (count went down)
   const prevCompletedInTransitionRef = useRef(0)
-  /** How many times each slot has been reloaded for the video it holds. */
-  const reloadsRef = useRef<Array<{ videoId: string; attempts: number }>>([])
+  /**
+   * What each slot has already tried: how many reloads for the video it holds,
+   * which videos it has been through, and whether it ran out of candidates.
+   */
+  const reloadsRef = useRef<
+    Array<{
+      videoId: string
+      attempts: number
+      tried: string[]
+      exhausted?: boolean
+    }>
+  >([])
 
   // ── Pool helpers ────────────────────────────────────────────────────────────
 
@@ -348,6 +359,7 @@ export default function RankingArena() {
         reloadsRef.current[slotIdx] = {
           videoId: slot.videoId,
           attempts: attempts + 1,
+          tried: seen?.tried ?? [],
         }
         // The remounted player knows nothing, so forget what was applied to it.
         appliedRef.current[slotIdx] = null
@@ -359,35 +371,86 @@ export default function RankingArena() {
         return
       }
 
-      // On the fallback already, or out of retries: nothing left to try.
-      if (slot.isFallback) {
+      // Out of retries on the fallback as well: nothing left to try.
+      if (slot.isFallback && (seen?.exhausted ?? false)) {
         updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
         return
       }
 
       updateSlot(slotIdx, { isFallbackLoading: true })
 
-      const { title, artist } = slot.track
-      const params = new URLSearchParams({ title, artist })
+      const track = slot.track
+      if (!track) {
+        updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
+        return
+      }
+
+      const { title, artist } = track
+      const tried = seen?.tried ?? []
+
+      // The music search is asked first, and it is the only one that can see some
+      // tracks at all: "XXX." on DAMN. comes back empty from the Data API under
+      // every phrasing, while the music index lists it straight away. It also costs
+      // no quota, so the Data API is only asked when this finds nothing.
+      let candidates: string[] = []
 
       try {
-        const r = await fetch(`/api/search?${params}`)
-        const { videoId }: { videoId: string | null } = await r.json()
+        const music = await fetch(
+          `/api/search-import?q=${encodeURIComponent(`${title} ${artist}`)}`,
+        )
+        if (music.ok) {
+          const data: { tracks?: Track[] } = await music.json()
+          // Only songs that are actually this one: a search for a title as plain
+          // as "XXX." also returns other people's songs, and playing one of those
+          // would put the wrong audio behind the right title.
+          candidates = (data.tracks ?? [])
+            .filter((song) => isSameSong(song, track))
+            .map((song) => song.id)
+        }
+      } catch {
+        // Fall through to the other index.
+      }
 
-        if (videoId) {
-          reloadsRef.current[slotIdx] = { videoId, attempts: 0 }
+      if (candidates.length === 0) {
+        try {
+          const params = new URLSearchParams({ title, artist })
+          const r = await fetch(`/api/search?${params}`)
+          const data: { videoIds?: string[] } = await r.json()
+          candidates = data.videoIds ?? []
+        } catch {
+          candidates = []
+        }
+      }
+
+      // One that has already been tried is never tried again: a slot that fails on
+      // a video and is handed the same video back would loop rather than recover.
+      {
+        const next = candidates.find(
+          (id) => id && id !== slot.videoId && !tried.includes(id),
+        )
+
+        if (next) {
+          reloadsRef.current[slotIdx] = {
+            videoId: next,
+            attempts: 0,
+            tried: [...tried, next],
+          }
           updateSlot(slotIdx, {
-            videoId,
+            videoId: next,
             isLoading: true,
             isFallbackLoading: false,
             isFallback: true,
             hasError: false,
           })
         } else {
+          reloadsRef.current[slotIdx] = {
+            videoId: slot.videoId,
+            attempts: seen?.attempts ?? 0,
+            tried,
+            exhausted: true,
+          }
           updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
         }
-      } catch {
-        updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
       }
     },
     [updateSlot],

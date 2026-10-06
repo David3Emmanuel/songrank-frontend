@@ -114,24 +114,74 @@ export class YouTubeAdapter {  private apiKey: string
     }
   }
 
-  async searchByQuery(title: string, artist: string): Promise<string | null> {
+  /**
+   * Alternative uploads of a track, best first, for a slot that will not play.
+   *
+   * The first query is the one that has always been used: the music category and
+   * the words "official audio". That narrowness is also why it returns nothing at
+   * all for some tracks, and nothing is what a failing slot gets handed, so it
+   * gives up. "XXX." on DAMN. is the example: the query comes back with zero
+   * results while "DUCKWORTH." finds a video, and the difference is punctuation
+   * and whatever a region's safe search makes of it.
+   *
+   * So a second, plainer query is tried when the first yields nothing, and several
+   * ids are returned so the caller can move on from one that will not play. Each
+   * query costs a hundred units of quota, which is why there are only two and the
+   * second is skipped as soon as the first finds anything.
+   */
+  async findAlternatives(title: string, artist: string): Promise<string[]> {
+    // Punctuation is noise to a search: "XXX." becomes "XXX".
+    const cleaned = title
+      .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    const queries = [
+      { q: `${title} ${artist} official audio`, category: '10' },
+      { q: `${cleaned || title} ${artist}`.trim(), category: null },
+    ]
+
+    const found: string[] = []
+
+    for (const query of queries) {
+      const ids = await this.searchVideoIds(query.q, query.category)
+      for (const id of ids) {
+        if (!found.includes(id)) found.push(id)
+      }
+      if (found.length > 0) break
+    }
+
+    return found.slice(0, 5)
+  }
+
+  /** Video ids for one search, in the order YouTube ranked them. */
+  private async searchVideoIds(
+    query: string,
+    category: string | null,
+  ): Promise<string[]> {
     try {
-      const query = `${title} ${artist} official audio`
+      const params = new URLSearchParams({
+        part: 'snippet',
+        q: query,
+        type: 'video',
+        key: this.apiKey,
+        maxResults: '5',
+      })
+      if (category) params.set('videoCategoryId', category)
+
       const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?` +
-          new URLSearchParams({
-            part: 'snippet',
-            q: query,
-            type: 'video',
-            videoCategoryId: '10',
-            key: this.apiKey,
-            maxResults: '1',
-          }),
+        `https://www.googleapis.com/youtube/v3/search?${params}`,
       )
-      const data = await res.json()
-      return data.items?.[0]?.id?.videoId || null
+      if (!res.ok) return []
+
+      const data = (await res.json()) as {
+        items?: Array<{ id?: { videoId?: string } }>
+      }
+      return (data.items ?? [])
+        .map((item) => item.id?.videoId)
+        .filter((id): id is string => Boolean(id))
     } catch {
-      return null
+      return []
     }
   }
 
