@@ -89,19 +89,13 @@ export default function ResultsView() {
         </div>
 
         {/* Podium for the top three. Second and third flank the winner, and a
-            place nobody reached stays as an empty pedestal. The pedestal takes
-            the score tint, so colour means score and height means place. The
-            place number keeps its own colour so the two never get confused. */}
+            place nobody reached stays as an empty pedestal. Deliberately not
+            tinted by score: the place colours are enough here, and the tint
+            belongs on the list rows. */}
         <div className='mb-8 flex items-end justify-center gap-3'>
           {[2, 1, 3].map((place) => {
-            const index = place - 1
-            const item = rankedTracks[index]
+            const item = rankedTracks[place - 1]
             const track = item?.track
-            const unmeasured = !measured[index]
-            const tint =
-              !track || unmeasured
-                ? undefined
-                : scoreTint(normalizeScore(scores[index], range))
             const pedestal = place === 1 ? 108 : place === 2 ? 80 : 60
 
             return (
@@ -111,22 +105,14 @@ export default function ResultsView() {
                     <div
                       className={`mb-2 overflow-hidden rounded-xl bg-slate-100 shadow-sm ${
                         place === 1 ? 'h-20 w-20' : 'h-16 w-16'
-                      } ${unmeasured ? 'opacity-60' : ''}`}
+                      }`}
                     >
                       <TrackArtwork src={track.coverImage} alt={track.title} />
                     </div>
-                    <p
-                      className={`w-full truncate text-center text-sm font-semibold ${
-                        unmeasured ? 'text-slate-400' : 'text-slate-900'
-                      }`}
-                    >
+                    <p className='w-full truncate text-center text-sm font-semibold'>
                       {track.title}
                     </p>
-                    <p
-                      className={`mb-2 w-full truncate text-center text-xs ${
-                        unmeasured ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
+                    <p className='mb-2 w-full truncate text-center text-xs text-slate-500'>
                       {track.artist}
                     </p>
                   </>
@@ -135,14 +121,14 @@ export default function ResultsView() {
                 )}
 
                 <div
-                  className={`flex w-full items-start justify-center rounded-t-xl border border-b-0 border-slate-200/80 pt-1.5 text-xl font-black ${
+                  className={`flex w-full items-start justify-center rounded-t-xl pt-1.5 text-xl font-black ${
                     place === 1
-                      ? 'text-amber-700'
+                      ? 'bg-amber-100 text-amber-700'
                       : place === 2
-                        ? 'text-slate-600'
-                        : 'text-orange-700'
+                        ? 'bg-slate-200 text-slate-600'
+                        : 'bg-orange-100 text-orange-700'
                   }`}
-                  style={{ height: pedestal, backgroundColor: tint }}
+                  style={{ height: pedestal }}
                 >
                   {place}
                 </div>
