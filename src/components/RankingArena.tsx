@@ -122,8 +122,16 @@ function subscribeNever(): () => void {
   return () => {}
 }
 
+function hasDebugFlag(flag: string): boolean {
+  const value = new URLSearchParams(window.location.search).get('debug') ?? ''
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .includes(flag)
+}
+
 function readDebugFlag(): boolean {
-  return new URLSearchParams(window.location.search).get('debug') === 'players'
+  return hasDebugFlag('players')
 }
 
 function readFalse(): boolean {
@@ -494,6 +502,53 @@ export default function RankingArena() {
     const id = setInterval(() => setSnapshot(readPoolSnapshot(slotRefs)), 250)
     return () => clearInterval(id)
   }, [debugEnabled, slotRefs])
+
+  // 7. Order logging, behind `?debug=order`.
+  //
+  // Written to answer one question during a test session: at which vote did the
+  // order last change, and did that include the top three? It keeps a running
+  // answer so the last console line is the summary, with no screenshots to
+  // transcribe.
+  const orderLogEnabled = useSyncExternalStore(
+    subscribeNever,
+    () => hasDebugFlag('order'),
+    readFalse,
+  )
+  const lastOrderChangeRef = useRef({ top3: 0, all: 0 })
+  const previousOrderRef = useRef<string[] | null>(null)
+
+  useEffect(() => {
+    if (!orderLogEnabled) return
+
+    const order = [...rankings]
+      .sort((a, b) => b.Score - a.Score)
+      .map((row) => row.Song)
+    if (order.length === 0) return
+
+    const previous = previousOrderRef.current
+    if (previous) {
+      if (previous.slice(0, 3).join('|') !== order.slice(0, 3).join('|')) {
+        lastOrderChangeRef.current.top3 = completedComparisons
+      }
+      if (previous.join('|') !== order.join('|')) {
+        lastOrderChangeRef.current.all = completedComparisons
+      }
+    }
+    previousOrderRef.current = order
+
+    const { top3, all } = lastOrderChangeRef.current
+    console.log(
+      `[order] after vote #${completedComparisons} — last changes: top3 @${top3 || '—'}, whole order @${all || '—'}`,
+    )
+    console.log(
+      order
+        .map((id, index) => {
+          const track = tracks.find((t) => t.id === id)
+          return `  ${index + 1}. ${track?.title ?? id}`
+        })
+        .join('\n'),
+    )
+  }, [orderLogEnabled, completedComparisons, rankings, tracks])
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
