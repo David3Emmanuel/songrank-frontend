@@ -24,6 +24,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* The players and the artwork come from here. Warming the handshake
+            costs nothing and saves it on the first comparison. No crossOrigin:
+            the iframe and the images both take the default connection, and
+            asking for a CORS one would open a second, unused pool. */}
+        <link rel="preconnect" href="https://www.youtube.com" />
+        <link rel="preconnect" href="https://i.ytimg.com" />
+        <link rel="dns-prefetch" href="https://www.youtube.com" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
