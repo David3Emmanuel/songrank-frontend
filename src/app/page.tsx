@@ -391,11 +391,21 @@ function DashboardContent() {
             }}
             className='space-y-2'
           >
-            {/* The filter sits inside the field, so the artist is visibly part of
-                the search rather than a hidden mode. It comes off with one tap. */}
+            {/* The filter sits inside the field, at its right end, so the artist
+                is visibly part of the search rather than a hidden mode, and comes
+                off with one tap. */}
             <div className='flex w-full flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/80 px-2 py-1.5 transition focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100'>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={
+                  artistFilter ? 'Add a song or album' : 'Add songs: an artist or a title'
+                }
+                aria-label='Search for songs to add'
+                className='min-w-[8rem] flex-1 bg-transparent px-2 py-1.5 text-slate-900 outline-none placeholder:text-slate-400'
+              />
               {artistFilter && (
-                <span className='inline-flex max-w-[60%] items-center gap-1 rounded-full bg-slate-900 py-1 pr-1 pl-2.5 text-xs font-semibold text-white'>
+                <span className='ml-auto inline-flex max-w-[60%] shrink-0 items-center gap-1 rounded-full bg-slate-900 py-1 pr-1 pl-2.5 text-xs font-semibold text-white'>
                   <UserRound size={12} className='shrink-0' />
                   <span className='truncate'>{artistFilter.name}</span>
                   <button
@@ -408,15 +418,6 @@ function DashboardContent() {
                   </button>
                 </span>
               )}
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={
-                  artistFilter ? 'Add a song or album' : 'Add songs: an artist or a title'
-                }
-                aria-label='Search for songs to add'
-                className='min-w-[8rem] flex-1 bg-transparent px-2 py-1.5 text-slate-900 outline-none placeholder:text-slate-400'
-              />
             </div>
             {isSearching && (
               <p className='px-1 text-xs text-slate-400'>Finding…</p>
