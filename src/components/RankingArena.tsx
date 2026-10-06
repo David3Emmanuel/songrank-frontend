@@ -12,6 +12,8 @@ import {
   groupOfSlot,
   intentsForPool,
   isPlayerReady,
+  NUDGE_AFTER_MS,
+  NUDGE_LIMIT,
   nextGroup,
   previousGroup,
   SLOT_COUNT,
@@ -22,6 +24,7 @@ import {
   shouldHoldStart,
   slotsOfGroup,
   START_HOLD_TIMEOUT_MS,
+  stuckCued,
   YT_UNKNOWN,
   type AppliedSlot,
   type PlaybackPhase,
@@ -422,8 +425,15 @@ export default function RankingArena() {
         try {
           const params = new URLSearchParams({ title, artist })
           const r = await fetch(`/api/search?${params}`)
-          const data: { videoIds?: string[] } = await r.json()
-          candidates = data.videoIds ?? []
+          const data: {
+            candidates?: Array<{ id: string; title: string; artist: string }>
+          } = await r.json()
+          // Gated the same way. Handing a slot an id from a search that matched on
+          // words is how the wrong song ends up playing under the right title:
+          // this route used to return bare ids, so nothing could check them.
+          candidates = (data.candidates ?? [])
+            .filter((candidate) => isSameSong(candidate, track))
+            .map((candidate) => candidate.id)
         } catch {
           candidates = []
         }
@@ -669,7 +679,68 @@ export default function RankingArena() {
     return () => clearTimeout(id)
   }, [applyIntents, slotKey, readinessKey])
 
-  // 6. Debug HUD sampling, only while the HUD is on screen.
+  // 6. Watchdog — asks again when a player did not do as it was told.
+  //
+  // A refused play is recorded as played, and the pool only asks when an intent or
+  // a video changes, so one side of a comparison can sit silent indefinitely:
+  // hiding and showing the page has been the only thing that rescues it, because
+  // that suspends the pool and the resume asks again. This asks instead, after a
+  // grace period, and only for a slot that is not playing or buffering. Capped per
+  // video, so a player that will not obey is abandoned rather than hammered.
+  const nudgeRef = useRef<
+    Array<{ videoId: string; asks: number; stuckSince: number | null }>
+  >([])
+
+  useEffect(() => {
+    if (phase !== 'active') return
+
+    const id = setInterval(() => {
+      const intents = intentsForPool(activeGroupRef.current, 'active')
+      let asked = false
+
+      slotsRef.current.forEach((slot, index) => {
+        const record = (nudgeRef.current[index] ??= {
+          videoId: slot.videoId,
+          asks: 0,
+          stuckSince: null,
+        })
+
+        if (record.videoId !== slot.videoId) {
+          record.videoId = slot.videoId
+          record.asks = 0
+          record.stuckSince = null
+        }
+
+        const stuck = stuckCued(
+          appliedRef.current[index],
+          slot.videoId,
+          intents[index],
+          slot.ytState,
+        )
+        if (!stuck) {
+          record.stuckSince = null
+          return
+        }
+
+        const now = Date.now()
+        record.stuckSince ??= now
+        if (now - record.stuckSince < NUDGE_AFTER_MS) return
+        if (record.asks >= NUDGE_LIMIT) return
+
+        record.asks += 1
+        record.stuckSince = now
+        // Forget what was asked for, so the pass below queues it again.
+        appliedRef.current[index] = null
+        asked = true
+      })
+
+      if (asked) applyIntents(true)
+    }, 1000)
+
+    return () => clearInterval(id)
+  }, [phase, applyIntents])
+
+  // 7. Debug HUD sampling, only while the HUD is on screen.
   const [snapshot, setSnapshot] = useState<PlayerSnapshot[]>([
     UNKNOWN_SNAPSHOT,
     UNKNOWN_SNAPSHOT,
@@ -820,9 +891,7 @@ export default function RankingArena() {
 
         <div className='absolute top-4 left-4 z-50'>
           <div className='hidden md:flex items-center gap-2'>
-            {/* eslint-disable-next-line react-hooks/refs -- these handlers run from
-                a tap, not while rendering. The compiler cannot see that through the
-                array, so it assumes the worst. */}
+
             {controls.map((control) => (
               <ArenaControl
                 key={control.key}
@@ -850,7 +919,7 @@ export default function RankingArena() {
             </button>
 
             {showControls &&
-              // eslint-disable-next-line react-hooks/refs -- as above
+
               controls.map((control) => (
                 <ArenaControl
                   key={control.key}

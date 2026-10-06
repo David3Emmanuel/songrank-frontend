@@ -129,7 +129,10 @@ export class YouTubeAdapter {  private apiKey: string
    * query costs a hundred units of quota, which is why there are only two and the
    * second is skipped as soon as the first finds anything.
    */
-  async findAlternatives(title: string, artist: string): Promise<string[]> {
+  async findAlternatives(
+    title: string,
+    artist: string,
+  ): Promise<Array<{ id: string; title: string; artist: string }>> {
     // Punctuation is noise to a search: "XXX." becomes "XXX".
     const cleaned = title
       .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
@@ -141,12 +144,12 @@ export class YouTubeAdapter {  private apiKey: string
       { q: `${cleaned || title} ${artist}`.trim(), category: null },
     ]
 
-    const found: string[] = []
+    const found: Array<{ id: string; title: string; artist: string }> = []
 
     for (const query of queries) {
-      const ids = await this.searchVideoIds(query.q, query.category)
-      for (const id of ids) {
-        if (!found.includes(id)) found.push(id)
+      const candidates = await this.searchVideoIds(query.q, query.category)
+      for (const candidate of candidates) {
+        if (!found.some((seen) => seen.id === candidate.id)) found.push(candidate)
       }
       if (found.length > 0) break
     }
@@ -154,11 +157,11 @@ export class YouTubeAdapter {  private apiKey: string
     return found.slice(0, 5)
   }
 
-  /** Video ids for one search, in the order YouTube ranked them. */
+  /** Video ids for one search, with what each claims to be, in YouTube's order. */
   private async searchVideoIds(
     query: string,
     category: string | null,
-  ): Promise<string[]> {
+  ): Promise<Array<{ id: string; title: string; artist: string }>> {
     try {
       const params = new URLSearchParams({
         part: 'snippet',
@@ -175,11 +178,18 @@ export class YouTubeAdapter {  private apiKey: string
       if (!res.ok) return []
 
       const data = (await res.json()) as {
-        items?: Array<{ id?: { videoId?: string } }>
+        items?: Array<{
+          id?: { videoId?: string }
+          snippet?: { title?: string; channelTitle?: string }
+        }>
       }
       return (data.items ?? [])
-        .map((item) => item.id?.videoId)
-        .filter((id): id is string => Boolean(id))
+        .map((item) => ({
+          id: item.id?.videoId ?? '',
+          title: decodeHtmlEntities(item.snippet?.title ?? ''),
+          artist: item.snippet?.channelTitle ?? '',
+        }))
+        .filter((candidate) => Boolean(candidate.id))
     } catch {
       return []
     }

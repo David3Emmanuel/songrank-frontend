@@ -6,15 +6,17 @@ export async function GET(request: NextRequest) {
   const artist = request.nextUrl.searchParams.get('artist') ?? ''
 
   if (!title) {
-    return NextResponse.json({ videoIds: [] }, { status: 400 })
+    return NextResponse.json({ candidates: [] }, { status: 400 })
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ videoIds: [] }, { status: 503 })
+    return NextResponse.json({ candidates: [] }, { status: 503 })
   }
 
   const adapter = new YouTubeAdapter(apiKey)
-  const videoIds = await adapter.findAlternatives(title, artist)
-  return NextResponse.json({ videoIds })
+  // Ids alone are not enough to hand a slot: what is playing has to be the same
+  // song, and only the caller knows which one it wants.
+  const candidates = await adapter.findAlternatives(title, artist)
+  return NextResponse.json({ candidates })
 }
