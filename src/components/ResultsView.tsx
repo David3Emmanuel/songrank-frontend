@@ -92,7 +92,7 @@ export default function ResultsView() {
         {/* Podium for the top three: a card each, with a floating place badge,
             the winner's card a size larger, and the bottoms aligned. A place
             nobody reached keeps the card shape with an empty frame. */}
-        <div className='mb-8 flex items-end justify-center gap-2 sm:gap-4 md:gap-6'>
+        <div className='mt-16 mb-8 flex items-end justify-center gap-2 sm:gap-4 md:gap-6'>
           {[2, 1, 3].map((place) => {
             const item = rankedTracks[place - 1]
             const track = item?.track
