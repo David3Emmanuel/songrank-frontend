@@ -227,3 +227,48 @@ test('the counts always add up to what came in', () => {
 test('an empty page of results is safe', () => {
   assert.deepEqual(groupVideos([]), { songs: [], duplicates: 0, filtered: 0 })
 })
+
+// The regression this guards: "how to" used to be enough on its own to throw a
+// song away, and "How To Pray", "How to Love" and "How to Save a Life" are songs.
+test('a song is not a tutorial just because it says how to', () => {
+  const grouped = groupVideos([
+    { ...video('a', 'How To Pray', 'Dahi'), videoType: 'MUSIC_VIDEO_TYPE_ATV' },
+    video('b', 'How to Love', 'Lil Wayne - Topic'),
+    video('c', 'How to Save a Life', 'The Fray - Topic'),
+  ])
+  assert.deepEqual(
+    grouped.songs.map((song) => song.title),
+    ['How To Pray', 'How to Love', 'How to Save a Life'],
+  )
+  assert.equal(grouped.filtered, 0)
+})
+
+test('instruction still goes, because it asks for a verb', () => {
+  const grouped = groupVideos([
+    video('a', 'HOW TO PLAY N95 ON GUITAR (easy tutorial)', 'guitar guy'),
+    video('b', 'How to produce a Kendrick Lamar beat', 'beatmaker'),
+    video('c', 'Kendrick Lamar - Not Like Us (Reaction)', 'some reactor'),
+  ])
+  assert.deepEqual(grouped.songs, [])
+  assert.equal(grouped.filtered, 3)
+})
+
+test('an official release is a song whatever its title claims', () => {
+  // An interview that is an official release is still not a song, but a track
+  // whose title merely reads like one is, and the label is what decides.
+  const grouped = groupVideos([
+    { ...video('a', 'How To Pray', 'Dahi'), videoType: 'MUSIC_VIDEO_TYPE_ATV' },
+    { ...video('b', 'Interview With The Artist', 'someone'), videoType: 'MUSIC_VIDEO_TYPE_UGC' },
+  ])
+  assert.deepEqual(grouped.songs.map((song) => song.id), ['a'])
+  assert.equal(grouped.filtered, 1)
+})
+
+test('an unofficial copy of a song folds into the official one', () => {
+  const grouped = groupVideos([
+    video('upload', 'How To Pray', 'some uploader'),
+    { ...video('official', 'How To Pray', 'Dahi'), videoType: 'MUSIC_VIDEO_TYPE_ATV' },
+  ])
+  assert.deepEqual(grouped.songs.map((song) => song.id), ['official'])
+  assert.equal(grouped.duplicates, 1)
+})

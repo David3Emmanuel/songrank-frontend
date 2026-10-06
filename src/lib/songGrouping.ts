@@ -63,7 +63,28 @@ const CONTINUATION = /^(part|pt|chapter|vol|volume|act|book|disc|no)\b/i
  * titles.
  */
 const NOT_A_SONG =
-  /\b(reaction|reacts|review|reviews|interview|podcast|concert|behind the scenes|making of|tutorial|lesson|how to|full album|mixtape|compilation|documentary|trailer|teaser|unboxing)\b/i
+  /\b(reaction|reacts|review|reviews|interview|podcast|concert|behind the scenes|making of|tutorial|lesson|full album|mixtape|compilation|documentary|trailer|teaser|unboxing)\b/i
+
+/**
+ * A title telling you how to play the song rather than being it.
+ *
+ * Bare "how to" used to sit in the list above, and it threw away real songs:
+ * "How To Pray", "How to Love", "How to Save a Life". Instruction needs a verb
+ * after it, so that is what this asks for.
+ */
+const HOW_TO_INSTRUCT =
+  /\bhow to\s+(play|make|produce|sing|write|record|use|program|mix|master|download|get)\b/i
+
+/**
+ * A real release, as opposed to an upload.
+ *
+ * The official track and video types are the label's own audio and its music
+ * video; an artist's topic channel is the same thing without the type. Those are
+ * songs whatever their titles say, which is why the filter below leaves them be.
+ */
+function isOfficial(video: CandidateVideo): boolean {
+  return officialRank(video) >= 3
+}
 
 function fold(value: string): string {
   return normalizeUnicode(value)
@@ -189,7 +210,12 @@ export function groupVideos<T extends CandidateVideo>(
   let filtered = 0
 
   for (const item of items) {
-    if (NOT_A_SONG.test(normalizeUnicode(item.title))) {
+    const title = normalizeUnicode(item.title)
+
+    // A real release is a song whatever it is called. "How To Pray" is a track,
+    // and an official audio or music video is never a tutorial, so this filter
+    // only ever applies to uploads that have no such label.
+    if (!isOfficial(item) && (NOT_A_SONG.test(title) || HOW_TO_INSTRUCT.test(title))) {
       filtered++
       continue
     }
