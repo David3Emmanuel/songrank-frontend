@@ -318,27 +318,12 @@ export default function SwipeComparison({
             }}
             className='z-50 w-24 h-24 md:w-32 md:h-32 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-lg shadow-slate-900/5 flex items-center justify-center relative touch-none hover:bg-white transition-colors'
           >
-            {/* Center Icon */}
+            {/* Center Icon — deliberately bare while leaning to a side: the
+                verdict is already spelled out in the header. */}
             {zone === 'neutral' && (
               <Music className='text-slate-500' size={32} />
             )}
             {zone === 'tie' && <Minus className='text-slate-700' size={40} />}
-            {(zone === 'weak-a' || zone === 'strong-a') && (
-              <div
-                className='font-black text-2xl'
-                style={{ color: leftCardAccent }}
-              >
-                {leftTrack.title.charAt(0)}
-              </div>
-            )}
-            {(zone === 'weak-b' || zone === 'strong-b') && (
-              <div
-                className='font-black text-2xl'
-                style={{ color: rightCardAccent }}
-              >
-                {rightTrack.title.charAt(0)}
-              </div>
-            )}
 
             {/* Ring Progress Indicator */}
             <div
