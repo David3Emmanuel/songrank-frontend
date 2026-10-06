@@ -15,6 +15,7 @@ interface VideosListResponse {
 
 /** The slice of playlistItems.list this adapter reads. */
 interface PlaylistItemsResponse {
+  nextPageToken?: string
   items?: Array<{
     contentDetails: { videoId: string }
     snippet: {
@@ -24,6 +25,13 @@ interface PlaylistItemsResponse {
     }
   }>
 }
+
+/**
+ * A stop for the paging loop. 40 pages is 2000 tracks, well past any playlist
+ * anyone would rank, and it means a server that keeps handing back a token
+ * cannot spin forever.
+ */
+const MAX_PLAYLIST_PAGES = 40
 
 export class YouTubeAdapter {
   private apiKey: string
@@ -91,26 +99,39 @@ export class YouTubeAdapter {
       throw new Error('Playlist not found')
     }
 
-    // Get playlist items
-    const itemsRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?` +
-        new URLSearchParams({
-          part: 'snippet,contentDetails',
-          playlistId: playlistId,
-          maxResults: '50',
-          key: this.apiKey,
-        }),
-    )
-    const itemsData = (await itemsRes.json()) as PlaylistItemsResponse
+    // Every page of playlist items, not just the first: a single page holds 50
+    // tracks and silently truncating a longer playlist is worse than a slow
+    // import.
+    const items: NonNullable<PlaylistItemsResponse['items']> = []
+    let pageToken: string | undefined
+
+    for (let page = 0; page < MAX_PLAYLIST_PAGES; page++) {
+      const params = new URLSearchParams({
+        part: 'snippet,contentDetails',
+        playlistId: playlistId,
+        maxResults: '50',
+        key: this.apiKey,
+      })
+      if (pageToken) params.set('pageToken', pageToken)
+
+      const itemsRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?${params}`,
+      )
+      const pageData = (await itemsRes.json()) as PlaylistItemsResponse
+      items.push(...(pageData.items ?? []))
+
+      pageToken = pageData.nextPageToken
+      if (!pageToken) break
+    }
 
     // Lengths live on the video, not on the playlist item, so they need one more
     // call: 1 quota unit per 50 tracks.
-    const videoIds = itemsData.items?.map((item) => item.contentDetails.videoId) ?? []
+    const videoIds = items.map((item) => item.contentDetails.videoId)
     const durations = await this.fetchDurations(videoIds)
 
     const playlist = playlistData.items[0]
     const tracks: Track[] =
-      itemsData.items?.map((item) => ({
+      items.map((item) => ({
         id: item.contentDetails.videoId,
         title: item.snippet.title,
         artist: artistFromChannelTitle(item.snippet.videoOwnerChannelTitle),
