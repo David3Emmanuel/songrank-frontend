@@ -115,6 +115,15 @@ export interface CardLayout {
   rowsPerColumn: number
   rowPaneGap: number
   rowPaneWidth: number
+  /**
+   * Whether the rows sit on one shared panel instead of a box each.
+   *
+   * Only worth it on the densest card: flush rows with their own borders draw
+   * two lines against each other, which reads as cramped. Derived from the
+   * density rather than named per shape, so it cannot drift out of step with the
+   * spacing that makes it necessary.
+   */
+  rowsSharePanel: boolean
 }
 
 export function cardLayout(
@@ -249,6 +258,10 @@ export function cardLayout(
   const slack = Math.max(0, region - contentHeight)
   const podiumTop = podiumTopBase + Math.floor(slack / 2)
 
+  // A box each is fine until the rows are flush and there are a lot of them,
+  // which is the square top ten: there the borders are what makes it feel tight.
+  const rowsSharePanel = rowGap === 0 && rowsPerColumn >= 6
+
   const podiumRunnerTop = podiumTop + podiumCover + podiumCaption.block
   const rowArt = rowHeight > 0 ? Math.max(24, rowHeight - (tall ? 40 : 22)) : 0
 
@@ -284,6 +297,7 @@ export function cardLayout(
     rowsPerColumn,
     rowPaneGap,
     rowPaneWidth,
+    rowsSharePanel,
   }
 }
 

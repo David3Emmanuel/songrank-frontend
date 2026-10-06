@@ -205,3 +205,13 @@ test('a wide card with only two rows below the podium uses one pane', () => {
 test('a story has room for taller rows than a square', () => {
   assert.ok(cardLayout('9:16', 10).rowHeight > cardLayout('1:1', 10).rowHeight)
 })
+
+test('only the densest card puts its rows on a shared panel', () => {
+  const panelCases = []
+  for (const format of FORMATS) {
+    for (const count of COUNTS) {
+      if (cardLayout(format, count).rowsSharePanel) panelCases.push(`${format}/${count}`)
+    }
+  }
+  assert.deepEqual(panelCases, ['1:1/10'])
+})
