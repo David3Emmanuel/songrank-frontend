@@ -8,7 +8,10 @@ import {
   intentsForPool,
   labelForPlayerState,
   otherGroup,
+  previewStartSeconds,
   readCurrentTime,
+  readDuration,
+  shouldHoldStart,
   slotsOfGroup,
   volumeForIntent,
 } from '../src/lib/playerSlots.ts'
@@ -18,6 +21,15 @@ const cued = (videoId) => ({ videoId, intent: 'cued' })
 const suspended = (videoId) => ({ videoId, intent: 'suspended' })
 
 const kinds = (commands) => commands.map((command) => command.kind)
+
+/** The seek target of a command list, or null when it does not seek. */
+const seekTo = (commands) => {
+  const seek = commands.find((command) => command.kind === 'seek')
+  return seek ? seek.to : null
+}
+
+// A 4:23 video, as videos.list reports it.
+const VIDEO_SECONDS = 263
 
 test('slots 0,1 are group 0 and slots 2,3 are group 1', () => {
   assert.deepEqual([0, 1, 2, 3].map(groupOfSlot), [0, 0, 1, 1])
@@ -60,79 +72,121 @@ test('only a playing slot is audible', () => {
   assert.equal(volumeForIntent('suspended'), 0)
 })
 
-test('a freshly cued video is played from the top, with no seek', () => {
-  // react-youtube cued the new video: it is at 0:00, so a rewind would be waste.
-  assert.deepEqual(kinds(commandsForSlot(cued('a'), playing('a'), 0)), [
-    'play',
-    'volume',
-  ])
+test('the preview offset scales with the track', () => {
+  assert.equal(previewStartSeconds(VIDEO_SECONDS), 52.6)
+  assert.equal(previewStartSeconds(200), 40)
+  assert.equal(previewStartSeconds(3723), 744.6)
 })
 
-test('a brand-new video is played', () => {
-  assert.deepEqual(kinds(commandsForSlot(null, playing('a'), 0)), ['play', 'volume'])
-  assert.deepEqual(kinds(commandsForSlot(playing('a'), playing('b'), 0)), [
+test('an unknown or nonsense length starts at the beginning', () => {
+  assert.equal(previewStartSeconds(0), 0)
+  assert.equal(previewStartSeconds(-5), 0)
+  assert.equal(previewStartSeconds(Number.NaN), 0)
+  assert.equal(previewStartSeconds(Number.POSITIVE_INFINITY), 0)
+})
+
+test('a freshly cued video starts at the preview offset, not the intro', () => {
+  const commands = commandsForSlot(cued('a'), playing('a'), VIDEO_SECONDS)
+  assert.deepEqual(kinds(commands), ['seek', 'play', 'volume'])
+  assert.equal(seekTo(commands), 52.6)
+})
+
+test('a brand-new video also starts at the preview offset', () => {
+  for (const applied of [null, playing('a')]) {
+    const commands = commandsForSlot(applied, playing('b'), VIDEO_SECONDS)
+    assert.deepEqual(kinds(commands), ['seek', 'play', 'volume'])
+    assert.equal(seekTo(commands), 52.6)
+  }
+})
+
+test('a slot with no known length still plays, from 0:00', () => {
+  assert.deepEqual(kinds(commandsForSlot(cued('a'), playing('a'), 0)), [
+    'seek',
     'play',
     'volume',
   ])
+  assert.equal(seekTo(commandsForSlot(cued('a'), playing('a'), 0)), 0)
 })
 
 test('demoting a slot pauses it and silences it', () => {
-  assert.deepEqual(kinds(commandsForSlot(playing('a'), cued('a'), 42)), [
+  assert.deepEqual(kinds(commandsForSlot(playing('a'), cued('a'), VIDEO_SECONDS)), [
     'pause',
     'volume',
   ])
-  assert.deepEqual(kinds(commandsForSlot(playing('a'), suspended('a'), 42)), [
-    'pause',
-    'volume',
-  ])
+  assert.deepEqual(
+    kinds(commandsForSlot(playing('a'), suspended('a'), VIDEO_SECONDS)),
+    ['pause', 'volume'],
+  )
 })
 
 // The audible bug: a track can land in the same slot on consecutive pairs, so
-// it must start over rather than resume at 0:42.
-test('a slot returning to the screen starts over', () => {
-  assert.deepEqual(kinds(commandsForSlot(cued('a'), playing('a'), 42)), [
-    'rewind',
-    'play',
-    'volume',
-  ])
+// it must start at the preview offset rather than resume wherever it stopped.
+test('a slot returning to the screen starts over at the preview offset', () => {
+  const commands = commandsForSlot(cued('a'), playing('a'), VIDEO_SECONDS)
+  assert.deepEqual(kinds(commands), ['seek', 'play', 'volume'])
 })
 
-test('a slot barely into its track does not bother seeking', () => {
-  assert.deepEqual(kinds(commandsForSlot(cued('a'), playing('a'), 0.2)), [
-    'play',
-    'volume',
-  ])
-})
-
-// Resuming from the pause menu continues; only the off-screen pool restarts.
+// Resuming from the pause menu continues; nothing else does.
 test('resuming from suspension carries on where it stopped', () => {
-  assert.deepEqual(kinds(commandsForSlot(suspended('a'), playing('a'), 42)), [
-    'play',
-    'volume',
-  ])
+  assert.deepEqual(
+    kinds(commandsForSlot(suspended('a'), playing('a'), VIDEO_SECONDS)),
+    ['play', 'volume'],
+  )
 })
 
-// If a rewind leaked into the steady state it would seek the audible track to 0
-// on every reconcile pass, several times a second.
+// If a seek leaked into the steady state it would jump the audible track back to
+// the preview offset on every reconcile pass, several times a second.
 test('a steady playing slot is only ever re-volumed', () => {
-  assert.deepEqual(kinds(commandsForSlot(playing('a'), playing('a'), 42)), [
+  assert.deepEqual(kinds(commandsForSlot(playing('a'), playing('a'), VIDEO_SECONDS)), [
     'volume',
   ])
-  assert.deepEqual(kinds(commandsForSlot(cued('a'), cued('a'), 0)), ['volume'])
-  assert.deepEqual(kinds(commandsForSlot(suspended('a'), suspended('a'), 42)), [
+  assert.deepEqual(kinds(commandsForSlot(cued('a'), cued('a'), VIDEO_SECONDS)), [
     'volume',
   ])
+  assert.deepEqual(
+    kinds(commandsForSlot(suspended('a'), suspended('a'), VIDEO_SECONDS)),
+    ['volume'],
+  )
 })
 
 test('the mix level reaches the command', () => {
-  const volume = commandsForSlot(playing('a'), playing('a'), 0, 80).find(
+  const volume = commandsForSlot(playing('a'), playing('a'), VIDEO_SECONDS, 80).find(
     (command) => command.kind === 'volume',
   )
   assert.equal(volume?.value, 80)
-  const silent = commandsForSlot(playing('a'), cued('a'), 0, 80).find(
+  const silent = commandsForSlot(playing('a'), cued('a'), VIDEO_SECONDS, 80).find(
     (command) => command.kind === 'volume',
   )
   assert.equal(silent?.value, 0)
+})
+
+test('a comparison starts only once both sides can be positioned', () => {
+  const ready = { ready: true, unavailable: false }
+  const loading = { ready: false, unavailable: false }
+  const broken = { ready: false, unavailable: true }
+
+  assert.equal(shouldHoldStart([ready, ready]), false)
+  assert.equal(shouldHoldStart([ready, loading]), true)
+  assert.equal(shouldHoldStart([loading, loading]), true)
+  // A side that can never load must not hold the other one back.
+  assert.equal(shouldHoldStart([ready, broken]), false)
+  assert.equal(shouldHoldStart([broken, broken]), false)
+})
+
+test('a length is only reported once the player has one', () => {
+  assert.equal(readDuration(null), 0)
+  assert.equal(readDuration({ getDuration: () => VIDEO_SECONDS }), VIDEO_SECONDS)
+  assert.equal(readDuration({ getDuration: () => 0 }), 0)
+  assert.equal(readDuration({ getDuration: () => -1 }), 0)
+  assert.equal(readDuration({ getDuration: () => Number.NaN }), 0)
+  assert.equal(
+    readDuration({
+      getDuration: () => {
+        throw new Error('not loaded')
+      },
+    }),
+    0,
+  )
 })
 
 test('player states are labelled, including the unknown ones', () => {

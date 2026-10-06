@@ -15,12 +15,30 @@ export const SLOT_COUNT = 4
 export const DEFAULT_MIX_LEVEL = 50
 
 /**
- * How far into a track a slot must be before returning it to `playing` means
- * "resume" rather than "start". A slot that was previously heard is paused
- * somewhere in the middle, and promoting it must start it over — a ranking
- * comparison is about the same excerpt of both songs.
+ * How far into a track a comparison begins.
+ *
+ * Music videos open with intros — sometimes a cold open, sometimes talking — and
+ * a ranking comparison is about the song. Starting a fifth of the way in skips
+ * most of that while still scaling with the track: a 3-minute song starts at
+ * ~0:36, a 6-minute one at ~1:12.
  */
-export const REWIND_THRESHOLD_SECONDS = 0.5
+export const PREVIEW_START_FRACTION = 0.2
+
+/** How long a starting pair may be held waiting for the other side. */
+export const START_HOLD_TIMEOUT_MS = 1200
+
+/**
+ * The offset a track should play from.
+ *
+ * Length comes from the *player*, not from `Track.durationMs`: for a YouTube
+ * music video the two differ (the song is 3:20, the video is 4:23), and the
+ * player is the thing being positioned. An unknown length means 0 rather than a
+ * guess.
+ */
+export function previewStartSeconds(durationSeconds: number): number {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return 0
+  return durationSeconds * PREVIEW_START_FRACTION
+}
 
 /**
  * What a slot should be doing right now.
@@ -87,12 +105,32 @@ export interface AppliedSlot {
 export type SlotCommand =
   | { kind: 'play' }
   | { kind: 'pause' }
-  | { kind: 'rewind' }
+  | { kind: 'seek'; to: number }
   | { kind: 'volume'; value: number }
+
+/** What a player reports about the track it holds, for the decisions below. */
+export interface SlotReadiness {
+  /** Length is known, so the preview offset can be computed. */
+  ready: boolean
+  /** No track, or a player that errored: must not hold up the other side. */
+  unavailable: boolean
+}
+
+/**
+ * Whether a starting comparison must wait before either side plays.
+ *
+ * Both sides of a comparison should begin on the same tick, so neither gets a
+ * head start. A side that can never become ready — a missing track, a player
+ * that errored — must not block the other one forever, which is why
+ * `unavailable` counts as settled.
+ */
+export function shouldHoldStart(sides: SlotReadiness[]): boolean {
+  return sides.some((side) => !side.ready && !side.unavailable)
+}
 
 /**
  * The commands that take one slot from what was applied to it to what it should
- * be doing, given where its playhead currently sits.
+ * be doing, given the length of the track it holds.
  *
  * Two rules here are load-bearing, and both are bug fixes rather than taste:
  *
@@ -101,15 +139,16 @@ export type SlotCommand =
  *   `videoId`, so a track that lands in the same slot twice in a row (a track
  *   can be paired with A and then with B) never got reloaded — the player kept
  *   running from wherever it was while React marked the slot idle.
- * - `rewind` is gated on the previous intent having been `cued`. Resuming from
- *   the pause menu should carry on where it stopped; only a slot coming back
- *   from the off-screen pool starts over. Gating it on `playing` instead would
- *   seek a track to 0 on every single reconcile pass, which would be audible.
+ * - the `seek` is gated on the previous intent not being `suspended`. Resuming
+ *   from the pause menu carries on where it stopped; every other route into
+ *   `playing` starts at the preview offset, because a cue leaves the player at
+ *   0:00. Gating it on "was playing" instead would seek the audible track on
+ *   every reconcile pass, which would be plainly audible.
  */
 export function commandsForSlot(
   applied: AppliedSlot | null,
   next: AppliedSlot,
-  currentTime: number,
+  durationSeconds: number,
   mixLevel: number = DEFAULT_MIX_LEVEL,
 ): SlotCommand[] {
   const sameVideo = applied !== null && applied.videoId === next.videoId
@@ -117,15 +156,16 @@ export function commandsForSlot(
   const commands: SlotCommand[] = []
 
   if (next.intent === 'playing') {
-    if (
-      changed &&
-      sameVideo &&
-      applied.intent === 'cued' &&
-      currentTime > REWIND_THRESHOLD_SECONDS
-    ) {
-      commands.push({ kind: 'rewind' })
+    if (changed) {
+      // Resuming from the pause menu carries on where it stopped; every other
+      // route into `playing` starts at the preview offset, because a cue leaves
+      // the player at 0:00. The two decisions are separate: `play` is needed on
+      // every entry into `playing`, the seek is not.
+      if (applied?.intent !== 'suspended') {
+        commands.push({ kind: 'seek', to: previewStartSeconds(durationSeconds) })
+      }
+      commands.push({ kind: 'play' })
     }
-    if (changed) commands.push({ kind: 'play' })
   } else if (changed) {
     // A freshly cued video should not be playing, and an off-screen one must
     // not be. Pausing an already-paused player is a no-op.
@@ -151,6 +191,7 @@ export interface PlayerHandle {
   seekTo(seconds: number, allowSeekAway?: boolean): void
   setVolume(volume: number): void
   getCurrentTime(): number
+  getDuration(): number
   getPlayerState(): number
   getVolume(): number
 }
@@ -168,13 +209,33 @@ const UNKNOWN_SNAPSHOT: PlayerSnapshot = {
 }
 
 /** Player states as YouTube names them, for the debug HUD. */
+export const YT_UNKNOWN = -2
+export const YT_UNSTARTED = -1
+export const YT_ENDED = 0
+export const YT_PLAYING = 1
+export const YT_PAUSED = 2
+export const YT_BUFFERING = 3
+export const YT_CUED = 5
+
 export const YT_STATE_LABELS: Record<number, string> = {
-  [-1]: 'unstarted',
-  0: 'ended',
-  1: 'playing',
-  2: 'paused',
-  3: 'buffering',
-  5: 'cued',
+  [YT_UNSTARTED]: 'unstarted',
+  [YT_ENDED]: 'ended',
+  [YT_PLAYING]: 'playing',
+  [YT_PAUSED]: 'paused',
+  [YT_BUFFERING]: 'buffering',
+  [YT_CUED]: 'cued',
+}
+
+/**
+ * Whether a slot can be positioned and started.
+ *
+ * `5` is the state that matters: YouTube reports it once a cued video is loaded,
+ * which is the earliest point at which a seek lands where it was asked to. The
+ * other states mean the player has already been through that once.
+ */
+export function isPlayerReady(player: PlayerHandle | null, ytState: number): boolean {
+  if (ytState === YT_CUED || ytState === YT_PLAYING || ytState === YT_PAUSED) return true
+  return readDuration(player) > 0
 }
 
 export function labelForPlayerState(state: number | null): string {
@@ -187,6 +248,17 @@ export function readCurrentTime(player: PlayerHandle): number {
   try {
     const seconds = player.getCurrentTime()
     return Number.isFinite(seconds) ? seconds : 0
+  } catch {
+    return 0
+  }
+}
+
+/** The track's length as the player knows it, or 0 before it is loaded. */
+export function readDuration(player: PlayerHandle | null): number {
+  if (!player) return 0
+  try {
+    const seconds = player.getDuration()
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0
   } catch {
     return 0
   }
@@ -208,8 +280,8 @@ export function runCommand(player: PlayerHandle, command: SlotCommand): void {
       case 'pause':
         player.pauseVideo()
         break
-      case 'rewind':
-        player.seekTo(0, true)
+      case 'seek':
+        player.seekTo(command.to, true)
         break
       case 'volume':
         player.setVolume(command.value)

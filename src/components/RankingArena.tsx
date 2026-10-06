@@ -10,15 +10,20 @@ import {
   commandsForSlot,
   groupOfSlot,
   intentsForPool,
+  isPlayerReady,
   otherGroup,
-  readCurrentTime,
+  readDuration,
   readPlayerSnapshot,
   runCommand,
+  shouldHoldStart,
   slotsOfGroup,
+  START_HOLD_TIMEOUT_MS,
+  YT_UNKNOWN,
   type AppliedSlot,
   type PlaybackPhase,
   type PlayerHandle,
   type PlayerSnapshot,
+  type SlotReadiness,
 } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 import { List, X } from 'lucide-react'
@@ -77,25 +82,28 @@ function applySlotCommands(
   refs: Array<React.RefObject<PlayerHandle | null>>,
   applied: Array<AppliedSlot | null>,
   desired: AppliedSlot[],
+  held: ReadonlySet<number>,
 ): Array<AppliedSlot | null> {
   const next = [...applied]
   for (let i = 0; i < desired.length; i++) {
+    // A held slot is left exactly as it was, including its applied record, so the
+    // next pass retries the start instead of believing it already played.
+    if (held.has(i)) continue
+
     const player = refs[i]?.current
     if (!player) {
       // No player yet (never mounted, or torn down): nothing was applied.
       next[i] = null
       continue
     }
-    const commands = commandsForSlot(
-      applied[i],
-      desired[i],
-      readCurrentTime(player),
-    )
+    const commands = commandsForSlot(applied[i], desired[i], readDuration(player))
     for (const command of commands) runCommand(player, command)
     next[i] = desired[i]
   }
   return next
 }
+
+const NOTHING_HELD: ReadonlySet<number> = new Set<number>()
 
 function readPoolSnapshot(
   refs: Array<React.RefObject<PlayerHandle | null>>,
@@ -144,6 +152,8 @@ interface SlotState {
   hasError: boolean
   isFallbackLoading: boolean
   isFallback: boolean
+  /** Last state the player reported; `YT_UNKNOWN` until it reports one. */
+  ytState: number
 }
 
 const EMPTY_SLOT: SlotState = {
@@ -154,6 +164,7 @@ const EMPTY_SLOT: SlotState = {
   hasError: false,
   isFallbackLoading: false,
   isFallback: false,
+  ytState: YT_UNKNOWN,
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -308,14 +319,48 @@ export default function RankingArena() {
   // is the only thing that tells the players, and it is the only thing allowed
   // to — the pool used to enforce volume from four different places, and none of
   // them ever paused anything.
-  const applyIntents = useCallback(() => {
-    const intents = intentsForPool(activeGroup, phase)
-    const desired: AppliedSlot[] = slotsRef.current.map((slot, index) => ({
-      videoId: slot.videoId,
-      intent: intents[index],
-    }))
-    appliedRef.current = applySlotCommands(slotRefs, appliedRef.current, desired)
-  }, [activeGroup, phase, slotRefs])
+  const applyIntents = useCallback(
+    (force = false): 'applied' | 'held' => {
+      const current = slotsRef.current
+      const intents = intentsForPool(activeGroup, phase)
+      const desired: AppliedSlot[] = current.map((slot, index) => ({
+        videoId: slot.videoId,
+        intent: intents[index],
+      }))
+
+      // Both sides of a comparison start on the same tick, so neither gets a
+      // head start. Holding is only about a pair that is *starting*: a swap of
+      // one side mid-comparison has nothing to line up with.
+      const [left, right] = slotsOfGroup(activeGroup)
+      const isStarting = (index: number) => {
+        const before = appliedRef.current[index]
+        return (
+          intents[index] === 'playing' &&
+          (before?.intent !== 'playing' || before.videoId !== desired[index].videoId)
+        )
+      }
+      const readinessOf = (index: number): SlotReadiness => ({
+        ready: isPlayerReady(slotRefs[index]?.current ?? null, current[index].ytState),
+        unavailable: current[index].hasError || !current[index].videoId,
+      })
+
+      const hold =
+        !force &&
+        isStarting(left) &&
+        isStarting(right) &&
+        shouldHoldStart([readinessOf(left), readinessOf(right)])
+
+      appliedRef.current = applySlotCommands(
+        slotRefs,
+        appliedRef.current,
+        desired,
+        hold ? new Set([left, right]) : NOTHING_HELD,
+      )
+
+      return hold ? 'held' : 'applied'
+    },
+    [activeGroup, phase, slotRefs],
+  )
 
   // ── Pool effects (declaration order = execution order within a render) ───────
   //
@@ -392,6 +437,7 @@ export default function RankingArena() {
       updateSlot(slotIdx, {
         isPlaying: ytState === 1,
         isLoading: ytState === -1 || ytState === 3,
+        ytState,
       })
     },
     [updateSlot],
@@ -423,9 +469,17 @@ export default function RankingArena() {
   //    render. Keyed on the video ids as well as the group, because a track that
   //    lands in the same slot twice in a row must still be re-applied.
   const slotKey = slots.map((slot) => slot.videoId).join('|')
+  // Player states, so a slot reporting itself loaded re-runs the reconcile and
+  // lets a held comparison start.
+  const readinessKey = slots.map((slot) => slot.ytState).join('|')
   useEffect(() => {
-    applyIntents()
-  }, [applyIntents, slotKey])
+    const outcome = applyIntents()
+    if (outcome !== 'held') return
+    // Backstop: a side that never reports itself ready must not silence the
+    // pair. After the timeout the start goes ahead regardless.
+    const id = setTimeout(() => applyIntents(true), START_HOLD_TIMEOUT_MS)
+    return () => clearTimeout(id)
+  }, [applyIntents, slotKey, readinessKey])
 
   // 6. Debug HUD sampling, only while the HUD is on screen.
   const [snapshot, setSnapshot] = useState<PlayerSnapshot[]>([
