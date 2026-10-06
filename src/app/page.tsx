@@ -774,8 +774,10 @@ function DashboardContent() {
 
           {/* Sticky rather than in flow: a long list is exactly when the button is
               furthest away. No box of its own, just a fade above it, so rows
-              scrolling underneath dissolve instead of being cut off by a border. */}
-          <div className='sticky bottom-0 z-20 mt-6 bg-gradient-to-t from-white via-white/90 to-transparent pt-8 pb-4'>
+              scrolling underneath dissolve instead of being cut off by a border.
+              The padding above is that fade, so it is kept to the smallest height
+              that still hides a row rather than reading as empty space. */}
+          <div className='sticky bottom-0 z-20 mt-3 bg-gradient-to-t from-white via-white/90 to-transparent pt-6 pb-3'>
             <button
               onClick={handleStartRanking}
               disabled={!canStart}
