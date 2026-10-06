@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RankerProvider, useRanker } from '../context/RankerContext'
 import RankingArena from '../components/RankingArena'
 import PoolPrewarm from '../components/PoolPrewarm'
@@ -12,6 +12,20 @@ import { draftEstimate } from '../lib/sessionProgress'
 import { formatDurationMs } from '../lib/videoMetadata'
 import { Music2, X } from 'lucide-react'
 import type { Track } from '../lib/types'
+import type { MusicEntityKind, MusicSearchEntity } from '../lib/innertube'
+
+/**
+ * What a result that is not a song is called.
+ *
+ * A search returns albums and artists beside the songs, and they need naming: an
+ * album looks like a song row otherwise, and only songs can be added so far.
+ */
+const KIND_LABELS: Partial<Record<MusicEntityKind, string>> = {
+  album: 'Album',
+  single: 'Single',
+  artist: 'Artist',
+  playlist: 'Playlist',
+}
 
 // Demo tracks for testing
 const DEMO_TRACKS: Track[] = [
@@ -93,6 +107,8 @@ function DashboardContent() {
   const [draftName, setDraftName] = useState('')
   /** Search results, waiting to be picked from. */
   const [candidates, setCandidates] = useState<Track[]>([])
+  /** Everything the search returned: the songs, and the entities beside them. */
+  const [entities, setEntities] = useState<MusicSearchEntity[]>([])
   const [foundFor, setFoundFor] = useState<{
     query: string
     duplicates: number
@@ -102,6 +118,11 @@ function DashboardContent() {
   const estimate = draftEstimate(draft.length)
   const canStart = draft.length > 1
   const inDraft = (id: string) => draft.some((track) => track.id === id)
+  /** The playable side of the results, by id, so an entity row can find its song. */
+  const tracksById = useMemo(
+    () => new Map(candidates.map((track) => [track.id, track])),
+    [candidates],
+  )
 
   /**
    * Adds songs to the draft, skipping any already in it.
@@ -153,6 +174,21 @@ function DashboardContent() {
       // Results wait to be picked from rather than landing in the list: a search
       // for one song should not add twenty five others.
       setCandidates(data.tracks as Track[])
+      setEntities(
+        Array.isArray(data.entities) && data.entities.length > 0
+          ? (data.entities as MusicSearchEntity[])
+          : (data.tracks as Track[]).map((track) => ({
+              kind: 'song' as const,
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              album: track.album,
+              year: '',
+              detail: '',
+              durationMs: track.durationMs,
+              coverImage: track.coverImage,
+            })),
+      )
       setFoundFor({
         query: (data.name as string) ?? trimmed,
         duplicates: Number(data.duplicates ?? 0),
@@ -268,8 +304,8 @@ function DashboardContent() {
             <div className='mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-3'>
               <div className='flex items-center justify-between gap-2'>
                 <p className='min-w-0 truncate text-sm font-semibold'>
-                  {candidates.length} song
-                  {candidates.length !== 1 ? 's' : ''} for “{foundFor.query}”
+                  {entities.length} result{entities.length !== 1 ? 's' : ''} for “
+                  {foundFor.query}”
                 </p>
                 <div className='flex shrink-0 items-center gap-1'>
                   <button
@@ -282,6 +318,7 @@ function DashboardContent() {
                     onClick={() => {
                       setFoundFor(null)
                       setCandidates([])
+                      setEntities([])
                     }}
                     aria-label='Hide these results'
                     className='rounded-full p-2 text-slate-400 transition-colors hover:bg-white hover:text-slate-600'
@@ -313,37 +350,63 @@ function DashboardContent() {
               )}
 
               <ul className='mt-2 max-h-[38vh] space-y-1.5 overflow-y-auto pr-1'>
-                {candidates.map((track) => {
-                  const duration = formatDurationMs(track.durationMs)
-                  const added = inDraft(track.id)
+                {entities.map((entity) => {
+                  // Songs come back as playable tracks; everything else is a thing
+                  // to open, which this slice does not do yet.
+                  const track = tracksById.get(entity.id)
+                  const duration = track ? formatDurationMs(track.durationMs) : ''
+                  const added = track ? inDraft(track.id) : false
+                  const isSong = entity.kind === 'song' || entity.kind === 'video'
+                  const label = KIND_LABELS[entity.kind]
+
                   return (
                     <li
-                      key={track.id}
+                      key={`${entity.kind}-${entity.id}`}
                       className='flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-2'
                     >
-                      <div className='h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100 text-slate-300'>
-                        <TrackArtwork src={track.coverImage} alt={track.title} />
+                      <div
+                        className={`h-10 w-10 shrink-0 overflow-hidden bg-slate-100 text-slate-300 ${
+                          entity.kind === 'artist' ? 'rounded-full' : 'rounded'
+                        }`}
+                      >
+                        <TrackArtwork src={entity.coverImage} alt={entity.title} />
                       </div>
                       <div className='min-w-0 flex-1'>
                         <p className='truncate text-sm leading-tight font-semibold'>
-                          {track.title}
+                          {entity.title}
                         </p>
                         <p className='truncate text-xs leading-tight text-slate-500'>
-                          {track.artist}
-                          {duration ? ` · ${duration}` : ''}
+                          {isSong
+                            ? [
+                                entity.artist,
+                                duration || formatDurationMs(entity.durationMs),
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')
+                            : [entity.artist, entity.year]
+                                .filter(Boolean)
+                                .join(' · ')}
                         </p>
                       </div>
-                      {added ? (
-                        <span className='shrink-0 pr-2 text-xs text-slate-400'>
-                          Added
-                        </span>
+                      {isSong ? (
+                        added ? (
+                          <span className='shrink-0 pr-2 text-xs text-slate-400'>
+                            Added
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              track && addToDraft([track], foundFor.query)
+                            }
+                            className='shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800'
+                          >
+                            Add
+                          </button>
+                        )
                       ) : (
-                        <button
-                          onClick={() => addToDraft([track], foundFor.query)}
-                          className='shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800'
-                        >
-                          Add
-                        </button>
+                        <span className='shrink-0 pr-2 text-xs text-slate-400'>
+                          {label}
+                        </span>
                       )}
                     </li>
                   )
