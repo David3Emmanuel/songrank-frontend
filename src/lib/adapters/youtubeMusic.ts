@@ -16,6 +16,7 @@ import {
   parseSearchSongs,
 } from '../innertube'
 import { groupVideos } from '../songGrouping'
+import { smallerThumbnailUrl } from '../videoMetadata'
 import type { Track } from '../types'
 
 export class YouTubeMusicAdapter {
@@ -65,7 +66,7 @@ export class YouTubeMusicAdapter {
         durationMs: song.durationMs,
         videoType: song.videoType,
         album: song.album,
-        coverImage: song.coverImage,
+        coverImage: smallerThumbnailUrl(song.coverImage),
       })),
     )
 

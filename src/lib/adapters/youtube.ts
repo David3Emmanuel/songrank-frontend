@@ -4,6 +4,7 @@ import {
   chunkIds,
   decodeHtmlEntities,
   parseIsoDurationMs,
+  smallerThumbnailUrl,
 } from '../videoMetadata'
 import { groupVideos } from '../songGrouping'
 
@@ -264,9 +265,10 @@ export class YouTubeAdapter {  private apiKey: string
         title: decodeHtmlEntities(item.snippet.title),
         channelTitle: item.snippet.channelTitle,
         durationMs: durations.get(item.id.videoId) ?? 0,
-        coverImage:
+        coverImage: smallerThumbnailUrl(
           item.snippet.thumbnails?.high?.url ||
-          item.snippet.thumbnails?.default?.url,
+            item.snippet.thumbnails?.default?.url,
+        ),
       })),
     )
 

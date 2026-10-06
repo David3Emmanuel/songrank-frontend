@@ -125,3 +125,24 @@ export function formatDurationMs(ms: number | null | undefined): string {
     ? `${hours}:${pad(minutes)}:${pad(seconds)}`
     : `${minutes}:${pad(seconds)}`
 }
+
+/**
+ * The same thumbnail, at a size worth downloading.
+ *
+ * The music endpoint hands back `hqdefault.jpg` at 400x225 for rows drawn at
+ * 40px, which is around 20KB each and a few hundred KB for one page of results.
+ * The signed query string is not required, and `mqdefault` is 320x180 for less
+ * than half the bytes, which still holds up at the largest size anything in this
+ * app draws artwork.
+ */
+export function smallerThumbnailUrl(
+  url: string | null | undefined,
+  variant: 'mqdefault' | 'default' = 'mqdefault',
+): string | undefined {
+  if (!url) return undefined
+
+  const match = /^(https?:\/\/i\.ytimg\.com\/vi\/[^/?#]+)\/[^/?#]+/.exec(url)
+  if (!match) return url
+
+  return `${match[1]}/${variant}.jpg`
+}
