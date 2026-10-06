@@ -6,7 +6,10 @@ import type { GroupedSongCollection } from '../../../lib/adapters/youtube'
 import type { MusicSearchEntity } from '../../../lib/innertube'
 
 /** What a search hands back: the playable songs, and every entity beside them. */
-type SearchResponse = GroupedSongCollection & { entities: MusicSearchEntity[] }
+type SearchResponse = GroupedSongCollection & {
+  entities: MusicSearchEntity[]
+  hiddenByArtist: number
+}
 
 /** Results fetched per query. Both endpoints cap around this anyway. */
 const RESULT_COUNT = 25
@@ -31,7 +34,14 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const cacheKey = normalizeQuery(query)
+  // The artist is part of what was asked for, so it is part of the cache key:
+  // the same words scoped to somebody else are a different request.
+  const artistId = request.nextUrl.searchParams.get('artistId')?.trim() ?? ''
+  const artistName = request.nextUrl.searchParams.get('artistName')?.trim() ?? ''
+  const artist =
+    artistId && artistName ? { id: artistId, name: artistName } : undefined
+
+  const cacheKey = `${normalizeQuery(query)}|${artistId}`
   const cached = searchCache.get(cacheKey)
   if (cached) {
     return NextResponse.json(cached, { headers: { 'x-search-cache': 'hit' } })
@@ -42,10 +52,8 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.YOUTUBE_API_KEY
 
   try {
-    const { collection, entities } = await new YouTubeMusicAdapter().searchBoth(
-      query,
-      RESULT_COUNT,
-    )
+    const { collection, entities, hiddenByArtist } =
+      await new YouTubeMusicAdapter().searchBoth(query, RESULT_COUNT, artist)
 
     if (collection.tracks.length === 0) {
       return NextResponse.json(
@@ -81,7 +89,11 @@ export async function GET(request: NextRequest) {
 
     // The entities ride along with the songs: the client shows the whole result
     // list, and only the songs can be added to a ranking so far.
-    const payload: SearchResponse = { ...filled, entities: namedEntities }
+    const payload: SearchResponse = {
+      ...filled,
+      entities: namedEntities,
+      hiddenByArtist,
+    }
     searchCache.set(cacheKey, payload)
     return NextResponse.json(payload, { headers: { 'x-search-cache': 'miss' } })
   } catch (err) {

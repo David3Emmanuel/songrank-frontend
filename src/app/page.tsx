@@ -141,6 +141,8 @@ function DashboardContent() {
     query: string
     duplicates: number
     filtered: number
+    /** Dropped for being by somebody else, when an artist filter is on. */
+    hiddenByArtist: number
   } | null>(null)
 
   const estimate = draftEstimate(draft.length)
@@ -289,9 +291,15 @@ function DashboardContent() {
     setError(null)
 
     try {
-      const res = await fetch(
-        `/api/search-import?q=${encodeURIComponent(trimmed)}`,
-      )
+      // The artist is sent as identity as well as words: the words find their
+      // songs, the id is what actually filters the results.
+      const scoped = new URLSearchParams({ q: trimmed })
+      if (artistFilter) {
+        scoped.set('artistId', artistFilter.id)
+        scoped.set('artistName', artistFilter.name)
+      }
+
+      const res = await fetch(`/api/search-import?${scoped}`)
       const data = await res.json()
       if (searchId !== searchIdRef.current) return
 
@@ -322,6 +330,7 @@ function DashboardContent() {
         query: label,
         duplicates: Number(data.duplicates ?? 0),
         filtered: Number(data.filtered ?? 0),
+        hiddenByArtist: Number(data.hiddenByArtist ?? 0),
       })
     } catch (err) {
       if (searchId !== searchIdRef.current) return
@@ -335,7 +344,9 @@ function DashboardContent() {
     } finally {
       if (searchId === searchIdRef.current) setIsSearching(false)
     }
-  }, [])
+    // The filter is read inside, so the callback has to change with it, or a
+    // search would keep sending whichever artist was first on screen.
+  }, [artistFilter])
 
   // Search as they type: wait for a pause, then ask. Enter skips the wait.
   // Choosing an artist changes the query, so this runs again with the filter on.
@@ -483,7 +494,9 @@ function DashboardContent() {
                 </div>
               </div>
 
-              {(foundFor.duplicates > 0 || foundFor.filtered > 0) && (
+              {(foundFor.duplicates > 0 ||
+                foundFor.filtered > 0 ||
+                foundFor.hiddenByArtist > 0) && (
                 <p className='mt-1 text-xs text-slate-500'>
                   Skipped{' '}
                   {[
@@ -496,6 +509,9 @@ function DashboardContent() {
                       ? `${foundFor.filtered} that ${
                           foundFor.filtered === 1 ? 'is not a song' : 'are not songs'
                         }`
+                      : null,
+                    foundFor.hiddenByArtist > 0
+                      ? `${foundFor.hiddenByArtist} by other artists`
                       : null,
                   ]
                     .filter(Boolean)

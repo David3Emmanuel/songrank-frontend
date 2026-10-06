@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import {
   MUSIC_CLIENT,
   OFFICIAL_VIDEO_TYPES,
+  isByArtist,
   kindForRow,
   parseDurationText,
   parseSearchEntities,
@@ -247,4 +248,93 @@ test('the card comes before the rows it sits above', () => {
   const entities = parseSearchEntities(both)
   assert.equal(entities[0].title, 'Kendrick Lamar')
   assert.equal(entities[1].kind, 'song')
+})
+
+// The chip has to be a filter, not a hint: a scoped search still returns rows by
+// other people, so the artist is matched on identity and the rest are dropped.
+const entity = (over) => ({
+  kind: 'song',
+  id: 'v1',
+  title: 'A song',
+  artist: '',
+  album: '',
+  year: '',
+  detail: '',
+  durationMs: 0,
+  ...over,
+})
+
+const kendrick = { id: 'UCkendrick', name: 'Kendrick Lamar' }
+const sza = { id: 'UCsza', name: 'SZA' }
+
+test('an artist filter matches the id the row links to', () => {
+  // This row names nobody: the id is the only thing that could match.
+  const row = entity({ artistIds: ['UCkendrick'] })
+  assert.equal(isByArtist(row, kendrick), true)
+  assert.equal(isByArtist(row, sza), false)
+})
+
+test('a featured artist counts as being on the song', () => {
+  // "Money Trees (feat. Jay Rock)" links to both, primary first.
+  const row = entity({ artistIds: ['UCkendrick', 'UCjayrock'] })
+  assert.equal(isByArtist(row, kendrick), true)
+  assert.equal(isByArtist(row, { id: 'UCjayrock', name: 'Jay Rock' }), true)
+  assert.equal(isByArtist(row, sza), false)
+})
+
+test('another artist is dropped, however highly the search ranked them', () => {
+  const row = entity({ artistIds: ['UCcole'], artist: 'J. Cole' })
+  assert.equal(isByArtist(row, kendrick), false)
+})
+
+test('without an artist link, the names a row lists decide', () => {
+  const row = entity({ artist: 'Kendrick Lamar, SZA' })
+  assert.equal(isByArtist(row, kendrick), true)
+  assert.equal(isByArtist(row, sza), true)
+  assert.equal(isByArtist(row, { id: 'UCx', name: 'Drake' }), false)
+})
+
+test('names compare loosely, ids do not', () => {
+  assert.equal(
+    isByArtist(entity({ artist: 'Kendrick  LAMAR' }), kendrick),
+    true,
+  )
+  assert.equal(isByArtist(entity({ artist: 'Kendrick' }), kendrick), false)
+  // An unnamed row with no link cannot be claimed by anybody.
+  assert.equal(isByArtist(entity({}), kendrick), false)
+})
+
+test("an artist's own row is kept only for that artist", () => {
+  const row = {
+    ...entity({ kind: 'artist', id: 'UCsza', title: 'SZA' }),
+  }
+  assert.equal(isByArtist(row, sza), true)
+  assert.equal(isByArtist(row, kendrick), false)
+})
+
+test('a feature recorded only in the title still counts', () => {
+  // This is the real shape of the row: no artist link, and the primary artist as
+  // plain text, so the title is the only place the feature is written down.
+  const row = entity({
+    title: 'Money Trees (feat. Jay Rock)',
+    artist: 'Kendrick Lamar',
+  })
+  assert.equal(isByArtist(row, { id: 'UCjayrock', name: 'Jay Rock' }), true)
+  assert.equal(isByArtist(row, kendrick), true)
+})
+
+test('an ordinary title is not read as a list of artists', () => {
+  const row = entity({ title: 'Rock & Roll Queen', artist: 'Someone' })
+  assert.equal(isByArtist(row, { id: 'UCx', name: 'Roll Queen' }), false)
+  assert.equal(isByArtist(row, { id: 'UCx', name: 'Rock' }), false)
+})
+
+test('a credit with several names is read as several names', () => {
+  const row = entity({
+    title: 'A Song (feat. SZA & Jay Rock)',
+    artist: 'Kendrick Lamar',
+  })
+  assert.equal(isByArtist(row, sza), true)
+  assert.equal(isByArtist(row, { id: 'UCj', name: 'Jay Rock' }), true)
+  assert.equal(isByArtist(row, { id: 'UCd', name: 'Drake' }), false)
 })

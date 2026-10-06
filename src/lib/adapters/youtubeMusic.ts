@@ -14,7 +14,9 @@ import {
   INNERTUBE_BROWSE_ENDPOINT,
   INNERTUBE_SEARCH_ENDPOINT,
   MUSIC_CLIENT,
+  isByArtist,
   parseSearchEntities,
+  type ArtistFilter,
   type MusicSearchEntity,
 } from '../innertube'
 import { groupVideos } from '../songGrouping'
@@ -26,20 +28,36 @@ export interface MusicSearch {
   collection: GroupedSongCollection
   /** Everything the search returned, in the order it ranked them. */
   entities: MusicSearchEntity[]
+  /** Results dropped for being by somebody else, when a filter is on. */
+  hiddenByArtist: number
 }
 
 export class YouTubeMusicAdapter {
   /**
    * One search, one request. No key and no quota: this is the endpoint the music
    * web player itself calls.
+   *
+   * An artist filter is both asked for and enforced. Asking is what finds their
+   * songs, since the endpoint reads "this artist, these words" as a scoped
+   * search; enforcing is what makes it a filter, because a scoped search still
+   * returns rows by other people.
    */
-  async searchBoth(query: string, max = 25): Promise<MusicSearch> {
+  async searchBoth(
+    query: string,
+    max = 25,
+    artist?: ArtistFilter,
+  ): Promise<MusicSearch> {
     const payload = await this.call(INNERTUBE_SEARCH_ENDPOINT, { query })
     const parsed = parseSearchEntities(payload)
 
+    const kept = artist
+      ? parsed.filter((entity) => isByArtist(entity, artist))
+      : parsed
+
     return {
-      entities: parsed.slice(0, max),
-      collection: this.toCollection(parsed, max, query, `for “${query}”`),
+      entities: kept.slice(0, max),
+      hiddenByArtist: parsed.length - kept.length,
+      collection: this.toCollection(kept, max, query, `for “${query}”`),
     }
   }
 

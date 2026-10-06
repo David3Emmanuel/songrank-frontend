@@ -270,6 +270,14 @@ export interface MusicSearchEntity {
   id: string
   title: string
   artist: string
+  /**
+   * Every artist the row links to, the primary one first.
+   *
+   * A list rather than one id because of features: "Money Trees (feat. Jay Rock)"
+   * links to both, and a song somebody is featured on is still a song they are
+   * on. The order is kept so a stricter rule, primary artist only, stays possible.
+   */
+  artistIds?: string[]
   album: string
   /** The release year a row stated, when it stated one. */
   year: string
@@ -278,6 +286,124 @@ export interface MusicSearchEntity {
   durationMs: number
   coverImage?: string
   videoType?: string
+}
+
+/** The artist a search is scoped to, from the chip in the search bar. */
+export interface ArtistFilter {
+  id: string
+  name: string
+}
+
+/**
+ * Every browse id in a row that points at an artist page, deduplicated.
+ *
+ * A row links to its artists whether or not it names them, and that link is the
+ * only identity a row carries: names collide and get spelled differently, ids do
+ * not. A feature links to each artist, so this can be more than one. The links
+ * can sit on the title, on the subtitle, or only inside the row's own "go to
+ * artist" menu item.
+ */
+function artistIdsIn(row: Node): string[] {
+  const found: string[] = []
+
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      for (const child of value) visit(child)
+      return
+    }
+
+    const object = asNode(value)
+    if (!object) return
+
+    for (const [key, child] of Object.entries(object)) {
+      if (key === 'browseEndpoint') {
+        const browse = asNode(child)
+        const configs = asNode(browse?.browseEndpointContextSupportedConfigs)
+        const music = asNode(configs?.browseEndpointContextMusicConfig)
+        const id = browse?.browseId
+        if (
+          music?.pageType === 'MUSIC_PAGE_TYPE_ARTIST' &&
+          typeof id === 'string' &&
+          id &&
+          !found.includes(id)
+        ) {
+          found.push(id)
+        }
+      }
+      visit(child)
+    }
+  }
+
+  visit(row)
+  return found
+}
+
+/** Names compare loosely: case, accents and punctuation are not identity. */
+function foldName(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function sameName(a: string, b: string): boolean {
+  const folded = foldName(a)
+  return folded !== '' && folded === foldName(b)
+}
+
+/**
+ * The names a row lists, which is more than one when somebody is featured.
+ *
+ * The fallback for a row with no artist links at all, so a feature still counts
+ * as being on the song.
+ */
+function artistNamesIn(value: string): string[] {
+  return value
+    .split(/\s*(?:,|&|·|\bfeat\.?\b|\bft\.?\b|\bwith\b|\bx\b)\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Whether a result belongs to the artist a search is scoped to.
+ *
+ * Ids decide when a row carries one, which it almost always does, and a match in
+ * any position counts, so a track the artist is featured on is kept. A row with no
+ * artist link falls back to comparing names, including the names of anybody
+ * featured on it. An artist's own row is kept only when it is that artist: the
+ * point of the chip is to drop everybody else, however highly a search ranks them.
+ */
+export function isByArtist(
+  entity: MusicSearchEntity,
+  filter: ArtistFilter,
+): boolean {
+  if (entity.kind === 'artist') return entity.id === filter.id
+
+  const ids = entity.artistIds ?? []
+  if (ids.length > 0) return ids.includes(filter.id)
+
+  return [...artistNamesIn(entity.artist), ...featuredNamesIn(entity.title)].some(
+    (name) => sameName(name, filter.name),
+  )
+}
+
+/**
+ * The names a title credits as featured.
+ *
+ * A last resort, for the rows that link to nobody: "Money Trees (feat. Jay Rock)"
+ * arrived with the primary artist as plain text and no artist link at all, so the
+ * only place its feature is recorded is the title. Only text after a credit word
+ * is read, so an ordinary title cannot be mistaken for a list of artists.
+ */
+function featuredNamesIn(title: string): string[] {
+  const credited = /\b(?:feat|ft|featuring|with)\.?\s+([^()[\]]+)/i.exec(title)
+  if (!credited) return []
+
+  return credited[1]
+    .split(/\s*(?:,|&|\band\b|\bx\b)\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
 }
 
 /** The page type an entity row declares about itself. */
@@ -429,6 +555,7 @@ export function parseSearchEntities(payload: unknown): MusicSearchEntity[] {
         // can still find the artist from the video, and a placeholder cannot be
         // told apart from a real name.
         artist: artistFromRow(columns) || subtitle.artist,
+        artistIds: artistIdsIn(row),
         album: subtitle.album,
         year: '',
         detail,
@@ -450,6 +577,8 @@ export function parseSearchEntities(payload: unknown): MusicSearchEntity[] {
       // An artist row's second column is an audience figure, not an artist, and a
       // playlist's is whoever made it, so neither is read as the artist.
       artist: kind === 'artist' || kind === 'playlist' ? '' : subtitle.artist,
+      // An artist's own row identifies itself, so the chip can match it.
+      artistIds: kind === 'artist' ? [browseId] : artistIdsIn(row),
       album: '',
       year: yearIn(detail),
       detail,
