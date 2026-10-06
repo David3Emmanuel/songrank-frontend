@@ -375,7 +375,10 @@ function DashboardContent() {
   }
 
   return (
-    <div className='relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50 text-slate-900'>
+    <div className='relative min-h-screen bg-gradient-to-b from-white to-sky-50 text-slate-900'>
+      {/* No overflow-hidden on this div: it would become the scrollport, and
+          nothing inside it could stick to the page. The background clips its own
+          drifting blobs. */}
       <LandingBackground />
 
       {/* Warm the first comparison while the list is still being put together.
