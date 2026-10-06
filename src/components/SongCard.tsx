@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { Music } from 'lucide-react'
+import TrackArtwork from './TrackArtwork'
 import type { PlayerHandle } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 
@@ -115,17 +114,13 @@ export default function SongCard({
           <div className='absolute inset-0 bg-white/20 animate-pulse' />
         )}
 
-        {track.coverImage ? (
-          <Image
-            src={track.coverImage}
-            alt={track.title}
-            fill
-            className='object-cover'
-            sizes='(max-width: 768px) 160px, 256px'
-          />
-        ) : (
-          <Music className='w-16 h-16 text-white/30' />
-        )}
+        <TrackArtwork
+          src={track.coverImage}
+          alt={track.title}
+          fill
+          sizes='(max-width: 768px) 160px, 256px'
+          className='object-cover'
+        />
 
         {/* Loading Spinner */}
         {isLoading && !hasError && !isFallbackLoading && (

@@ -43,7 +43,7 @@ const DEMO_TRACKS: Track[] = [
     album: 'Future Nostalgia',
     durationMs: 203064,
     coverImage:
-      'https://i.scdn.co/image/ab67616d0000b273fc59e9108992c0c446e72e5c',
+      'https://i.scdn.co/image/ab67616d00001e02c88bae7846e62a8ba59ee0bd',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/39LLxExYz6ewLAcYrzQQyP',
       youtube: 'https://www.youtube.com/watch?v=TUVcZfQe-Kw',
@@ -69,7 +69,7 @@ const DEMO_TRACKS: Track[] = [
     album: 'Dreamland',
     durationMs: 238805,
     coverImage:
-      'https://i.scdn.co/image/ab67616d0000b27369a3fae1c6b9cb4e15ecf329',
+      'https://i.scdn.co/image/ab67616d00001e029e495fb707973f3390850eea',
     externalUrls: {
       spotify: 'https://open.spotify.com/track/02MWAaffLxlfxAUY7c5dvx',
       youtube: 'https://www.youtube.com/watch?v=mRD0-GxqHVo',

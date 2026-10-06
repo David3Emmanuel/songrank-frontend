@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Trophy, X } from 'lucide-react'
-import Image from 'next/image'
+import TrackArtwork from './TrackArtwork'
 import type { SongRanking, Track } from '../lib/types'
 
 interface LiveRankingsProps {
@@ -75,19 +75,13 @@ export default function LiveRankings({
 
                     {/* Album Art */}
                     <div className='shrink-0 w-10 h-10 rounded overflow-hidden bg-slate-700'>
-                      {track.coverImage ? (
-                        <Image
-                          src={track.coverImage}
-                          alt={track.title}
-                          width={40}
-                          height={40}
-                          className='object-cover'
-                        />
-                      ) : (
-                        <div className='w-full h-full flex items-center justify-center text-white/30 text-xs'>
-                          ♪
-                        </div>
-                      )}
+                      <TrackArtwork
+                        src={track.coverImage}
+                        alt={track.title}
+                        width={40}
+                        height={40}
+                        className='object-cover'
+                      />
                     </div>
 
                     {/* Track Info */}
@@ -217,19 +211,13 @@ export default function LiveRankings({
 
                         {/* Album Art */}
                         <div className='shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-700'>
-                          {track.coverImage ? (
-                            <Image
-                              src={track.coverImage}
-                              alt={track.title}
-                              width={48}
-                              height={48}
-                              className='object-cover'
-                            />
-                          ) : (
-                            <div className='w-full h-full flex items-center justify-center text-white/30'>
-                              ♪
-                            </div>
-                          )}
+                          <TrackArtwork
+                            src={track.coverImage}
+                            alt={track.title}
+                            width={48}
+                            height={48}
+                            className='object-cover'
+                          />
                         </div>
 
                         {/* Track Info */}
