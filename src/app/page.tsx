@@ -773,8 +773,9 @@ function DashboardContent() {
           )}
 
           {/* Sticky rather than in flow: a long list is exactly when the button is
-              furthest away, and the list is the point of this screen. */}
-          <div className='sticky bottom-4 z-20 mt-4 rounded-2xl border border-slate-200/60 bg-white/90 p-1 shadow-sm backdrop-blur-sm'>
+              furthest away. No box of its own, just a fade above it, so rows
+              scrolling underneath dissolve instead of being cut off by a border. */}
+          <div className='sticky bottom-0 z-20 mt-6 bg-gradient-to-t from-white via-white/90 to-transparent pt-8 pb-4'>
             <button
               onClick={handleStartRanking}
               disabled={!canStart}
