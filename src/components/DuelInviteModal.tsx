@@ -101,21 +101,11 @@ export default function DuelInviteModal({
         {!shareUrl ? (
           <>
             {/* Info */}
-            <div className='mb-6 space-y-3'>
+            <div className='mb-6'>
               <p className='text-slate-600'>
                 Invite a friend to rank the same {tracks.length} songs and
                 discover how similar your music tastes are!
               </p>
-              <div className='bg-purple-50 border border-purple-200 rounded-lg p-4'>
-                <p className='text-sm text-purple-700 font-medium'>
-                  📊 You&apos;ll see:
-                </p>
-                <ul className='text-sm text-purple-700 mt-2 space-y-1 ml-4'>
-                  <li>• How alike your taste is</li>
-                  <li>• Songs you both love</li>
-                  <li>• Your biggest disagreements</li>
-                </ul>
-              </div>
             </div>
 
             {/* Error */}
@@ -129,7 +119,7 @@ export default function DuelInviteModal({
             <button
               onClick={handleCreateDuel}
               disabled={isCreating}
-              className='w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
+              className='w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
             >
               {isCreating ? (
                 <>
@@ -148,11 +138,11 @@ export default function DuelInviteModal({
           <>
             {/* Success */}
             <div className='mb-6 space-y-4'>
-              <div className='bg-emerald-50 border border-emerald-200 rounded-lg p-4'>
-                <p className='text-emerald-700 font-semibold mb-2'>
-                  ✅ Challenge Created!
+              <div className='bg-slate-50 border border-slate-200 rounded-lg p-4'>
+                <p className='text-slate-900 font-semibold mb-2'>
+                  Challenge created
                 </p>
-                <p className='text-sm text-emerald-700'>
+                <p className='text-sm text-slate-600'>
                   Share this link with your friend. They&apos;ll rank the same
                   songs, and you&apos;ll both see the comparison results.
                 </p>
@@ -172,7 +162,7 @@ export default function DuelInviteModal({
                   aria-label='Copy link'
                 >
                   {copied ? (
-                    <Check size={20} className='text-emerald-600' />
+                    <Check size={20} className='text-slate-600' />
                   ) : (
                     <Copy size={20} className='text-slate-600' />
                   )}
@@ -184,7 +174,7 @@ export default function DuelInviteModal({
             <div className='flex gap-3'>
               <button
                 onClick={handleShare}
-                className='flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors'
+                className='flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-lg transition-colors'
               >
                 Share Link
               </button>

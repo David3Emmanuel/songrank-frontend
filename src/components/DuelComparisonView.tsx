@@ -56,11 +56,11 @@ export default function DuelComparisonView({
     return (
       <div className='min-h-screen bg-gradient-to-b from-white to-sky-50 text-slate-900 flex items-center justify-center p-4'>
         <div className='text-center max-w-md'>
-          <AlertTriangle size={48} className='text-amber-500 mx-auto mb-4' />
+          <AlertTriangle size={48} className='text-slate-400 mx-auto mb-4' />
           <p className='text-slate-900 text-xl mb-4'>{error}</p>
           <button
             onClick={loadComparison}
-            className='bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors'
+            className='bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors'
           >
             Refresh
           </button>
@@ -72,12 +72,6 @@ export default function DuelComparisonView({
   if (!comparison) return null
 
   const compatibilityPercent = Math.round(comparison.compatibility_score * 100)
-  const compatibilityColor =
-    compatibilityPercent >= 70
-      ? 'text-emerald-600'
-      : compatibilityPercent >= 40
-        ? 'text-amber-500'
-        : 'text-rose-600'
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-white to-sky-50 text-slate-900 p-4 md:p-8'>
@@ -93,19 +87,16 @@ export default function DuelComparisonView({
         {/* Compatibility Score */}
         <div className='bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl p-8 mb-8'>
           <div className='text-center'>
-            <TrendingUp
-              size={48}
-              className={`${compatibilityColor} mx-auto mb-4`}
-            />
+            <TrendingUp size={48} className='text-slate-400 mx-auto mb-4' />
             <h2 className='text-3xl font-bold mb-2'>
               You two are {compatibilityPercent}% alike
             </h2>
             <p className='text-slate-600'>
               {compatibilityPercent >= 70
-                ? '🎉 You have very similar music tastes!'
+                ? 'You have very similar music tastes'
                 : compatibilityPercent >= 40
-                  ? '😊 You share some common favorites'
-                  : '🤔 You have quite different tastes!'}
+                  ? 'You share some common favourites'
+                  : 'You have quite different tastes'}
             </p>
           </div>
         </div>
@@ -114,7 +105,7 @@ export default function DuelComparisonView({
         {comparison.agreed_favorites.length > 0 && (
           <div className='bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl p-6 mb-8'>
             <div className='flex items-center gap-3 mb-4'>
-              <Trophy size={24} className='text-amber-500' />
+              <Trophy size={24} className='text-slate-400' />
               <h3 className='text-2xl font-bold'>Songs You Both Love</h3>
             </div>
             <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
@@ -145,7 +136,7 @@ export default function DuelComparisonView({
         {comparison.controversial.length > 0 && (
           <div className='bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl p-6 mb-8'>
             <div className='flex items-center gap-3 mb-4'>
-              <AlertTriangle size={24} className='text-orange-500' />
+              <AlertTriangle size={24} className='text-slate-400' />
               <h3 className='text-2xl font-bold'>Biggest Disagreements</h3>
             </div>
             <div className='space-y-3'>
@@ -173,7 +164,7 @@ export default function DuelComparisonView({
                       <div className='font-bold'>
                         #{item.rank_a} vs #{item.rank_b}
                       </div>
-                      <div className='text-xs text-orange-600'>
+                      <div className='text-xs text-slate-500'>
                         {Math.abs(item.rank_a - item.rank_b)} places apart
                       </div>
                     </div>
@@ -188,7 +179,7 @@ export default function DuelComparisonView({
         <div className='text-center'>
           <button
             onClick={() => (window.location.href = '/')}
-            className='bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-3 rounded-lg transition-colors'
+            className='bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-3 rounded-lg transition-colors'
           >
             Create Your Own Ranking
           </button>
