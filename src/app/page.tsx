@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { RankerProvider, useRanker } from '../context/RankerContext'
 import RankingArena from '../components/RankingArena'
 import ResultsView from '../components/ResultsView'
+import LandingBackground from '../components/LandingBackground'
 import YouTubeImportModal from '../components/YouTubeImportModal'
-import { Music2, Play, Sparkles, Youtube } from 'lucide-react'
+import { Music2 } from 'lucide-react'
 import type { Track } from '../lib/types'
 
 // Demo tracks for testing
@@ -80,6 +81,9 @@ const DEMO_TRACKS: Track[] = [
 function DashboardContent() {
   const { initializeRanker, currentPair, isComplete } = useRanker()
   const [showYouTubeImport, setShowYouTubeImport] = useState(false)
+  const [query, setQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleStartDemo = () => {
     initializeRanker(DEMO_TRACKS, 'Demo Mix')
@@ -87,6 +91,33 @@ function DashboardContent() {
 
   const handleYouTubeImport = (tracks: Track[], name?: string) => {
     initializeRanker(tracks, name || 'YouTube Playlist')
+  }
+
+  const handleSearch = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const trimmed = query.trim()
+    if (!trimmed || isSearching) return
+
+    setIsSearching(true)
+    setError(null)
+
+    try {
+      const res = await fetch(
+        `/api/search-import?q=${encodeURIComponent(trimmed)}`,
+      )
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error ?? 'Search failed')
+      if (!Array.isArray(data.tracks) || data.tracks.length < 2) {
+        throw new Error(`Not enough songs found for “${trimmed}”`)
+      }
+
+      initializeRanker(data.tracks as Track[], data.name ?? trimmed)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Search failed')
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   // Show results if complete
@@ -99,90 +130,72 @@ function DashboardContent() {
     return <RankingArena />
   }
 
-  // Show dashboard
   return (
-    <div className='min-h-screen bg-slate-900 text-white flex items-center justify-center p-4'>
-      <div className='max-w-2xl w-full'>
-        {/* Hero Section */}
-        <div className='text-center mb-12'>
-          <div className='inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/30 mb-6'>
-            <Music2 size={48} className='text-white' />
+    <div className='relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50 text-slate-900'>
+      <LandingBackground />
+
+      <div className='relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16'>
+        <header className='animate-rise text-center'>
+          <div className='mx-auto mb-6 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-white shadow-lg shadow-emerald-500/25'>
+            <Music2 size={36} />
           </div>
-          <h1 className='text-6xl font-bold mb-4 text-white'>
-            SongRank
-          </h1>
-          <p className='text-xl text-white/80 mb-2'>
-            Discover your true music preferences
+          <h1 className='text-5xl font-bold tracking-tight'>SongRank</h1>
+          <p className='mt-3 text-lg text-slate-600'>
+            Two songs at a time. Your real ranking at the end.
           </p>
-          <p className='text-white/60'>
-            Swipe to compare. AI learns your taste. Get the perfect ranking.
-          </p>
-        </div>
+        </header>
 
-        {/* Feature Cards */}
-        <div className='grid md:grid-cols-3 gap-4 mb-8'>
-          <div className='bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center'>
-            <Sparkles className='w-8 h-8 mx-auto mb-3 text-yellow-400' />
-            <h3 className='font-semibold mb-1'>Smart Ranking</h3>
-            <p className='text-sm text-white/60'>
-              Active learning adapts to your taste
-            </p>
-          </div>
-          <div className='bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center'>
-            <Play className='w-8 h-8 mx-auto mb-3 text-emerald-400' />
-            <h3 className='font-semibold mb-1'>Preview Audio</h3>
-            <p className='text-sm text-white/60'>Listen while you compare</p>
-          </div>
-          <div className='bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center'>
-            <Music2 className='w-8 h-8 mx-auto mb-3 text-blue-400' />
-            <h3 className='font-semibold mb-1'>Export Results</h3>
-            <p className='text-sm text-white/60'>Save to Spotify & share</p>
-          </div>
-        </div>
-
-        {/* Action Section */}
-        <div className='bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8'>
-          <h2 className='text-2xl font-bold mb-4'>Get Started</h2>
-
-          {/* Demo Button */}
+        <div className='animate-rise mt-10 space-y-3'>
           <button
             onClick={handleStartDemo}
-            className='w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl transition-colors mb-4'
+            className='w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-slate-800'
           >
-            Try Demo (5 Songs)
+            Start with 5 songs
           </button>
 
-          {/* Import Options */}
-          <div className='space-y-3'>
+          <form onSubmit={handleSearch} className='flex gap-2'>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder='An artist or a song title'
+              aria-label='Search for songs to rank'
+              className='min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none backdrop-blur transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+            />
             <button
-              disabled
-              className='w-full bg-white/5 border border-white/20 text-white/50 font-semibold py-3 rounded-xl cursor-not-allowed'
+              type='submit'
+              disabled={!query.trim() || isSearching}
+              className='rounded-2xl bg-emerald-500 px-5 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40'
             >
-              Import from Spotify (Coming Soon)
+              {isSearching ? 'Finding…' : 'Find 25'}
             </button>
-            <button
-              onClick={() => setShowYouTubeImport(true)}
-              className='w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2'
-            >
-              <Youtube size={20} />
-              Import from YouTube Music
-            </button>
-          </div>
+          </form>
 
-          <p className='text-xs text-white/40 mt-4 text-center'>
-            YouTube import requires a free API key
-          </p>
+          <button
+            onClick={() => setShowYouTubeImport(true)}
+            className='w-full rounded-2xl border border-slate-200 bg-white/70 py-3 font-medium text-slate-600 backdrop-blur transition-colors hover:bg-white'
+          >
+            Paste a playlist link instead
+          </button>
         </div>
 
-        {/* YouTube Import Modal */}
-        {showYouTubeImport && (
-          <YouTubeImportModal
-            onImport={handleYouTubeImport}
-            onClose={() => setShowYouTubeImport(false)}
-          />
+        {error && (
+          <p className='animate-rise mt-4 text-center text-sm text-rose-600'>
+            {error}
+          </p>
         )}
 
+        <p className='mt-8 text-center text-xs text-slate-400'>
+          Searching and importing use a free YouTube API key, set on the server.
+        </p>
       </div>
+
+      {/* YouTube Import Modal */}
+      {showYouTubeImport && (
+        <YouTubeImportModal
+          onImport={handleYouTubeImport}
+          onClose={() => setShowYouTubeImport(false)}
+        />
+      )}
     </div>
   )
 }

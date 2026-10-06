@@ -2,8 +2,21 @@ import type { SongCollection, Track } from '../types'
 import {
   artistFromChannelTitle,
   chunkIds,
+  decodeHtmlEntities,
   parseIsoDurationMs,
 } from '../videoMetadata'
+
+/** The slice of search.list this adapter reads. */
+interface SearchListResponse {
+  items?: Array<{
+    id?: { videoId?: string }
+    snippet: {
+      title: string
+      channelTitle?: string
+      thumbnails?: Record<string, { url: string }>
+    }
+  }>
+}
 
 /** The slice of videos.list this adapter reads. */
 interface VideosListResponse {
@@ -133,7 +146,7 @@ export class YouTubeAdapter {
     const tracks: Track[] =
       items.map((item) => ({
         id: item.contentDetails.videoId,
-        title: item.snippet.title,
+        title: decodeHtmlEntities(item.snippet.title),
         artist: artistFromChannelTitle(item.snippet.videoOwnerChannelTitle),
         album: '',
         durationMs: durations.get(item.contentDetails.videoId) ?? 0,
@@ -157,6 +170,59 @@ export class YouTubeAdapter {
         playlist.snippet.thumbnails?.default?.url,
       etag: playlist.etag,
       tracks: tracks,
+    }
+  }
+
+  /**
+   * A collection built from a free-text query, shaped exactly like an imported
+   * playlist so the landing page can offer "type an artist" and "paste a link"
+   * as interchangeable routes into the same ranker.
+   *
+   * Costs 100 quota units for the search plus 1 per 50 results for the lengths,
+   * which is why the result count is capped rather than paged.
+   */
+  async searchCollection(query: string, max = 25): Promise<SongCollection> {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?` +
+        new URLSearchParams({
+          part: 'snippet',
+          q: query,
+          type: 'video',
+          videoCategoryId: '10', // Music
+          maxResults: String(Math.min(Math.max(max, 2), 50)),
+          key: this.apiKey,
+        }),
+    )
+    const data = (await res.json()) as SearchListResponse
+
+    const found = (data.items ?? []).filter(
+      (item): item is typeof item & { id: { videoId: string } } =>
+        Boolean(item.id?.videoId),
+    )
+    const durations = await this.fetchDurations(found.map((item) => item.id.videoId))
+
+    const tracks: Track[] = found.map((item) => ({
+      id: item.id.videoId,
+      title: decodeHtmlEntities(item.snippet.title),
+      artist: artistFromChannelTitle(item.snippet.channelTitle),
+      album: '',
+      durationMs: durations.get(item.id.videoId) ?? 0,
+      coverImage:
+        item.snippet.thumbnails?.high?.url ||
+        item.snippet.thumbnails?.default?.url,
+      externalUrls: {
+        youtube: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      },
+      previewUrl: undefined, // YouTube doesn't provide direct audio previews
+    }))
+
+    return {
+      id: `search:${query}`,
+      type: 'playlist',
+      name: query,
+      description: `${tracks.length} results for “${query}”`,
+      coverImage: tracks[0]?.coverImage,
+      tracks,
     }
   }
 

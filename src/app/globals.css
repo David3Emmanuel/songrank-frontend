@@ -10,6 +10,28 @@
   to   { transform: translateY(0); }
 }
 
+/* Slow, wide drifts for the landing page's colour fields. Each is a different
+   duration so the three never settle into a visible shared rhythm. */
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4rem, -3rem, 0) scale(1.12); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50%      { transform: translate3d(-5rem, 2rem, 0) scale(0.94); }
+}
+
+@keyframes drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.98); }
+  50%      { transform: translate3d(3rem, 4rem, 0) scale(1.1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -23,6 +45,17 @@
 
   --animate-fade-in: fade-in 200ms ease-out both;
   --animate-slide-up: slide-up 300ms ease-out both;
+  --animate-drift-a: drift-a 22s ease-in-out infinite;
+  --animate-drift-b: drift-b 28s ease-in-out infinite;
+  --animate-drift-c: drift-c 34s ease-in-out infinite;
+  --animate-rise: rise 500ms ease-out both;
+}
+
+/* A faint dot lattice, so the light background has some texture of its own. */
+.landing-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgb(15 23 42 / 0.07) 1px, transparent 0);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
 }
 
 @media (prefers-color-scheme: dark) {
