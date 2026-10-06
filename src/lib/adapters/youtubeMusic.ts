@@ -11,6 +11,7 @@
 import type { GroupedSongCollection } from './youtube'
 import { YouTubeApiError } from './youtube'
 import {
+  INNERTUBE_BROWSE_ENDPOINT,
   INNERTUBE_SEARCH_ENDPOINT,
   MUSIC_CLIENT,
   parseSearchEntities,
@@ -33,19 +34,53 @@ export class YouTubeMusicAdapter {
    * web player itself calls.
    */
   async searchBoth(query: string, max = 25): Promise<MusicSearch> {
-    const body = {
-      context: { client: MUSIC_CLIENT },
-      query,
-    }
+    const payload = await this.call(INNERTUBE_SEARCH_ENDPOINT, { query })
+    const parsed = parseSearchEntities(payload)
 
-    const res = await fetch(INNERTUBE_SEARCH_ENDPOINT, {
+    return {
+      entities: parsed.slice(0, max),
+      collection: this.toCollection(parsed, max, query, `for “${query}”`),
+    }
+  }
+
+  /**
+   * The songs behind an artist, an album, a single or a playlist.
+   *
+   * Every one of those pages carries its tracks as rows of the same shape a
+   * search returns, so one parser reads them all: an album page, an artist's
+   * songs shelf and a playlist all come back through `parseSearchEntities`.
+   */
+  async browseCollection(
+    browseId: string,
+    title: string,
+    max = 50,
+  ): Promise<GroupedSongCollection> {
+    const payload = await this.call(INNERTUBE_BROWSE_ENDPOINT, { browseId })
+    const parsed = parseSearchEntities(payload)
+
+    return this.toCollection(parsed, max, title, `from ${title}`)
+  }
+
+  /** Just the playable songs, for callers that do not care about the rest. */
+  async searchCollection(
+    query: string,
+    max = 25,
+  ): Promise<GroupedSongCollection> {
+    return (await this.searchBoth(query, max)).collection
+  }
+
+  private async call(
+    endpoint: string,
+    extra: Record<string, unknown>,
+  ): Promise<unknown> {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Origin: 'https://music.youtube.com',
         Referer: 'https://music.youtube.com/',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ context: { client: MUSIC_CLIENT }, ...extra }),
     })
 
     if (!res.ok) {
@@ -61,11 +96,21 @@ export class YouTubeMusicAdapter {
       throw new YouTubeApiError(res.status, reason)
     }
 
-    const parsed = parseSearchEntities(await res.json())
-    const entities = parsed.slice(0, max)
-    // Only what can be played, in the order the search ranked it. Cap the songs
-    // as well as the entities, since the entity list carries albums and artists
-    // that would otherwise eat into the list.
+    return res.json()
+  }
+
+  /**
+   * The playable side of a parsed page.
+   *
+   * Only what can be played, in the order the page listed it, capped so one
+   * artist page cannot hand back an entire discography by accident.
+   */
+  private toCollection(
+    parsed: MusicSearchEntity[],
+    max: number,
+    name: string,
+    description: string,
+  ): GroupedSongCollection {
     const songs = parsed
       .filter((entity) => entity.kind === 'song' || entity.kind === 'video')
       .slice(0, max)
@@ -96,25 +141,14 @@ export class YouTubeMusicAdapter {
     }))
 
     return {
-      entities,
-      collection: {
-        id: `search:${query}`,
-        type: 'playlist',
-        name: query,
-        description: `${tracks.length} songs for “${query}”`,
-        coverImage: tracks[0]?.coverImage,
-        tracks,
-        duplicates: grouped.duplicates,
-        filtered: grouped.filtered,
-      },
+      id: `browse:${name}`,
+      type: 'playlist',
+      name,
+      description: `${tracks.length} songs ${description}`,
+      coverImage: tracks[0]?.coverImage,
+      tracks,
+      duplicates: grouped.duplicates,
+      filtered: grouped.filtered,
     }
-  }
-
-  /** Just the playable songs, for callers that do not care about the rest. */
-  async searchCollection(
-    query: string,
-    max = 25,
-  ): Promise<GroupedSongCollection> {
-    return (await this.searchBoth(query, max)).collection
   }
 }

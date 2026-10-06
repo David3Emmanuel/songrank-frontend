@@ -10,7 +10,7 @@ import YouTubeImportModal from '../components/YouTubeImportModal'
 import TrackArtwork from '../components/TrackArtwork'
 import { draftEstimate } from '../lib/sessionProgress'
 import { formatDurationMs } from '../lib/videoMetadata'
-import { Music2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, Music2, X } from 'lucide-react'
 import type { Track } from '../lib/types'
 import type { MusicEntityKind, MusicSearchEntity } from '../lib/innertube'
 
@@ -109,6 +109,16 @@ function DashboardContent() {
   const [candidates, setCandidates] = useState<Track[]>([])
   /** Everything the search returned: the songs, and the entities beside them. */
   const [entities, setEntities] = useState<MusicSearchEntity[]>([])
+  /**
+   * The entities that have been opened, by kind and id.
+   *
+   * An album, a single, an artist and a playlist all open into their songs, which
+   * is the action such a result needs: without one it is a row you can only look
+   * at.
+   */
+  const [opened, setOpened] = useState<
+    Record<string, { loading: boolean; error: string; tracks: Track[] }>
+  >({})
   const [foundFor, setFoundFor] = useState<{
     query: string
     duplicates: number
@@ -165,6 +175,65 @@ function DashboardContent() {
 
     return rows
   }, [entities, candidates, tracksById])
+
+  /**
+   * Opens an entity into its songs, or closes it again.
+   *
+   * The same page shape comes back for an album, a single, an artist and a
+   * playlist, so one call covers all four.
+   */
+  const toggleEntity = useCallback(
+    async (entity: MusicSearchEntity) => {
+      const key = `${entity.kind}:${entity.id}`
+
+      if (opened[key]) {
+        setOpened((current) => {
+          const next = { ...current }
+          delete next[key]
+          return next
+        })
+        return
+      }
+
+      setOpened((current) => ({
+        ...current,
+        [key]: { loading: true, error: '', tracks: [] },
+      }))
+
+      try {
+        const params = new URLSearchParams({
+          kind: entity.kind,
+          id: entity.id,
+          title: entity.title,
+        })
+        const res = await fetch(`/api/expand?${params}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'That did not open.')
+
+        setOpened((current) => ({
+          ...current,
+          [key]: {
+            loading: false,
+            error: '',
+            tracks: (data.tracks ?? []) as Track[],
+          },
+        }))
+      } catch (err) {
+        setOpened((current) => ({
+          ...current,
+          [key]: {
+            loading: false,
+            error:
+              err instanceof Error
+                ? err.message
+                : 'That did not open. Give it another go in a moment.',
+            tracks: [],
+          },
+        }))
+      }
+    },
+    [opened],
+  )
 
   /**
    * Adds songs to the draft, skipping any already in it.
@@ -393,19 +462,22 @@ function DashboardContent() {
 
               <ul className='mt-2 max-h-[38vh] space-y-1.5 overflow-y-auto pr-1'>
                 {shownResults.map((entity) => {
-                  // Songs come back as playable tracks; everything else is a thing
-                  // to open, which this slice does not do yet.
+                  // A song is added; anything else opens into the songs it holds.
                   const track = tracksById.get(entity.id)
                   const duration = track ? formatDurationMs(track.durationMs) : ''
                   const added = track ? inDraft(track.id) : false
                   const isSong = entity.kind === 'song' || entity.kind === 'video'
                   const label = KIND_LABELS[entity.kind]
+                  const key = `${entity.kind}:${entity.id}`
+                  const open = opened[key]
+                  const subtitle = isSong
+                    ? [entity.artist, duration || formatDurationMs(entity.durationMs)]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : [entity.artist, entity.year].filter(Boolean).join(' · ')
 
-                  return (
-                    <li
-                      key={`${entity.kind}-${entity.id}`}
-                      className='flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-2'
-                    >
+                  const face = (
+                    <>
                       <div
                         className={`h-10 w-10 shrink-0 overflow-hidden bg-slate-100 text-slate-300 ${
                           entity.kind === 'artist' ? 'rounded-full' : 'rounded'
@@ -418,37 +490,137 @@ function DashboardContent() {
                           {entity.title}
                         </p>
                         <p className='truncate text-xs leading-tight text-slate-500'>
-                          {isSong
-                            ? [
-                                entity.artist,
-                                duration || formatDurationMs(entity.durationMs),
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')
-                            : [entity.artist, entity.year]
-                                .filter(Boolean)
-                                .join(' · ')}
+                          {subtitle}
                         </p>
                       </div>
+                    </>
+                  )
+
+                  return (
+                    <li
+                      key={key}
+                      className='rounded-xl border border-slate-200/80 bg-white/80'
+                    >
                       {isSong ? (
-                        added ? (
-                          <span className='shrink-0 pr-2 text-xs text-slate-400'>
-                            Added
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() =>
-                              track && addToDraft([track], foundFor.query)
-                            }
-                            className='shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800'
-                          >
-                            Add
-                          </button>
-                        )
+                        <div className='flex items-center gap-3 p-2'>
+                          {face}
+                          {added ? (
+                            <span className='shrink-0 pr-2 text-xs text-slate-400'>
+                              Added
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                track && addToDraft([track], foundFor.query)
+                              }
+                              className='shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800'
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
                       ) : (
-                        <span className='shrink-0 pr-2 text-xs text-slate-400'>
-                          {label}
-                        </span>
+                        <button
+                          onClick={() => void toggleEntity(entity)}
+                          aria-expanded={Boolean(open)}
+                          className='flex w-full items-center gap-3 p-2 text-left'
+                        >
+                          {face}
+                          <span className='shrink-0 text-xs text-slate-400'>
+                            {label}
+                          </span>
+                          {open ? (
+                            <ChevronDown
+                              size={16}
+                              className='shrink-0 text-slate-400'
+                            />
+                          ) : (
+                            <ChevronRight
+                              size={16}
+                              className='shrink-0 text-slate-400'
+                            />
+                          )}
+                        </button>
+                      )}
+
+                      {open && (
+                        <div className='border-t border-slate-200/70 p-2'>
+                          {open.loading && (
+                            <p className='flex items-center gap-2 px-1 py-2 text-xs text-slate-500'>
+                              <Loader2 size={14} className='animate-spin' />
+                              Opening
+                            </p>
+                          )}
+
+                          {open.error && (
+                            <p className='px-1 py-2 text-xs text-rose-700'>
+                              {open.error}
+                            </p>
+                          )}
+
+                          {!open.loading && !open.error && (
+                            <>
+                              <div className='flex items-center justify-between gap-2 px-1 pb-1'>
+                                <p className='text-xs text-slate-500'>
+                                  {open.tracks.length} song
+                                  {open.tracks.length === 1 ? '' : 's'}
+                                </p>
+                                <button
+                                  onClick={() =>
+                                    addToDraft(open.tracks, entity.title)
+                                  }
+                                  className='rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-600'
+                                >
+                                  Add all
+                                </button>
+                              </div>
+                              <ul className='space-y-1'>
+                                {open.tracks.map((song) => {
+                                  const songDuration = formatDurationMs(
+                                    song.durationMs,
+                                  )
+                                  return (
+                                    <li
+                                      key={song.id}
+                                      className='flex items-center gap-2 rounded-lg bg-slate-50/80 p-1.5'
+                                    >
+                                      <div className='h-8 w-8 shrink-0 overflow-hidden rounded bg-slate-100 text-slate-300'>
+                                        <TrackArtwork
+                                          src={song.coverImage}
+                                          alt={song.title}
+                                        />
+                                      </div>
+                                      <div className='min-w-0 flex-1'>
+                                        <p className='truncate text-xs leading-tight font-medium'>
+                                          {song.title}
+                                        </p>
+                                        <p className='truncate text-[11px] leading-tight text-slate-500'>
+                                          {[song.artist, songDuration]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        </p>
+                                      </div>
+                                      {inDraft(song.id) ? (
+                                        <span className='shrink-0 pr-1 text-[11px] text-slate-400'>
+                                          Added
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() =>
+                                            addToDraft([song], entity.title)
+                                          }
+                                          className='shrink-0 rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800'
+                                        >
+                                          Add
+                                        </button>
+                                      )}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </>
+                          )}
+                        </div>
                       )}
                     </li>
                   )
