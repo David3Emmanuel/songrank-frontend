@@ -97,10 +97,9 @@ export default function DuelComparisonView({
               size={48}
               className={`${compatibilityColor} mx-auto mb-4`}
             />
-            <h2 className='text-3xl font-bold mb-2'>Compatibility Score</h2>
-            <div className={`text-6xl font-black ${compatibilityColor} mb-4`}>
-              {compatibilityPercent}%
-            </div>
+            <h2 className='text-3xl font-bold mb-2'>
+              You two are {compatibilityPercent}% alike
+            </h2>
             <p className='text-slate-600'>
               {compatibilityPercent >= 70
                 ? '🎉 You have very similar music tastes!'
@@ -170,12 +169,12 @@ export default function DuelComparisonView({
                       </p>
                     </div>
                     <div className='shrink-0 text-right'>
-                      <div className='text-sm text-slate-500'>Ranks</div>
+                      <div className='text-sm text-slate-500'>Where you each put it</div>
                       <div className='font-bold'>
                         #{item.rank_a} vs #{item.rank_b}
                       </div>
                       <div className='text-xs text-orange-600'>
-                        {Math.abs(item.rank_a - item.rank_b)} apart
+                        {Math.abs(item.rank_a - item.rank_b)} places apart
                       </div>
                     </div>
                   </div>

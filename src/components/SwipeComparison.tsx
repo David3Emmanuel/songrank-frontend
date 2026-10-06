@@ -113,9 +113,7 @@ export default function SwipeComparison({
           : vote.includes('A')
             ? leftTrack.title
             : rightTrack.title
-      setFeedback(
-        `Voted: ${vote.replace('A', displayName).replace('B', displayName)}`,
-      )
+      setFeedback(vote === 'Tie' ? "It's a tie" : `${displayName} it is`)
       onVote?.(vote)
 
       // Reset after animation
@@ -169,7 +167,7 @@ export default function SwipeComparison({
     // Vertical Priority (Tie)
     if (y > THRESHOLD_TIE_Y) {
       setZone('tie')
-      setFeedback('Release to Tie')
+      setFeedback('Let go for a tie')
       return
     }
 
@@ -177,22 +175,22 @@ export default function SwipeComparison({
     if (absX > THRESHOLD_STRONG) {
       if (x < 0) {
         setZone('strong-a')
-        setFeedback(`STRONG WIN: ${leftTrack.title}`)
+        setFeedback(`${leftTrack.title} wins big`)
       } else {
         setZone('strong-b')
-        setFeedback(`STRONG WIN: ${rightTrack.title}`)
+        setFeedback(`${rightTrack.title} wins big`)
       }
     } else if (absX > THRESHOLD_WEAK) {
       if (x < 0) {
         setZone('weak-a')
-        setFeedback(`Weak Win: ${leftTrack.title}`)
+        setFeedback(`${leftTrack.title}, just edges it`)
       } else {
         setZone('weak-b')
-        setFeedback(`Weak Win: ${rightTrack.title}`)
+        setFeedback(`${rightTrack.title}, just edges it`)
       }
     } else {
       setZone('neutral')
-      setFeedback('Peeking...')
+      setFeedback('Have a listen...')
     }
   }
 
@@ -352,7 +350,7 @@ export default function SwipeComparison({
         >
           <ArrowDown size={24} />
         </div>
-        <p className='text-xs uppercase tracking-widest mt-2'>Drop to Tie</p>
+        <p className='text-xs uppercase tracking-widest mt-2'>Drop here for a tie</p>
       </div>
     </div>
   )

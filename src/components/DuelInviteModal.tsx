@@ -84,7 +84,7 @@ export default function DuelInviteModal({
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div>
-            <h2 className='text-xl font-bold text-slate-900'>Challenge a Friend</h2>
+            <h2 className='text-xl font-bold text-slate-900'>Challenge a friend</h2>
             {playlistName && (
               <p className='text-slate-500 text-sm mt-0.5'>{playlistName}</p>
             )}
@@ -111,7 +111,7 @@ export default function DuelInviteModal({
                   📊 You&apos;ll see:
                 </p>
                 <ul className='text-sm text-purple-700 mt-2 space-y-1 ml-4'>
-                  <li>• Compatibility score (0-100%)</li>
+                  <li>• How alike your taste is</li>
                   <li>• Songs you both love</li>
                   <li>• Your biggest disagreements</li>
                 </ul>

@@ -647,7 +647,7 @@ export default function RankingArena() {
         {/* Desktop: the session's progress, as a bar with no reading to interpret */}
         <div className='hidden md:flex absolute top-4 right-4 z-50 flex-col items-end gap-2 pointer-events-none'>
           <div className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 text-slate-700 text-sm shadow-sm'>
-            Comparisons: {completedComparisons}
+            {completedComparisons} {completedComparisons === 1 ? 'pick' : 'picks'}
           </div>
           <div
             role='progressbar'
@@ -670,8 +670,7 @@ export default function RankingArena() {
         {showStopSuggestion && (
           <div className='absolute right-4 top-24 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-emerald-200 bg-white/95 p-3 shadow-lg backdrop-blur-md'>
             <p className='text-sm text-slate-700'>
-              You can stop here — most of the order is set, though the top three
-              usually still shifts.
+              Good point to wrap up. Want to see where it landed?
             </p>
             <div className='mt-3 flex gap-2'>
               <button
@@ -703,8 +702,8 @@ export default function RankingArena() {
             <div className='bg-white/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-200 shadow-xl'>
               <h2 className='text-2xl font-bold text-slate-900 mb-4'>Paused</h2>
               <p className='text-slate-600 mb-6'>
-                You&apos;ve completed {completedComparisons} comparisons.
-                Current confidence: {Math.round(confidence * 100)}%
+                {completedComparisons} pick
+                {completedComparisons !== 1 ? 's' : ''} in.
               </p>
               <div className='flex flex-col gap-3'>
                 <button
@@ -732,7 +731,7 @@ export default function RankingArena() {
                   onClick={() => {
                     if (
                       confirm(
-                        'Restart ranking? All comparisons will be cleared.',
+                        'Restart ranking? All your picks will be cleared.',
                       )
                     ) {
                       restartRanker()
@@ -750,9 +749,8 @@ export default function RankingArena() {
                   }}
                   className='w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors'
                 >
-                  Finish & View Results
-                </button>
-              </div>
+                  See my results
+                </button>              </div>
             </div>
           </div>
         )}

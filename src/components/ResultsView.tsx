@@ -4,7 +4,7 @@ import { useRanker } from '../context/RankerContext'
 import ShareCardModal from './ShareCardModal'
 import DuelInviteModal from './DuelInviteModal'
 import TrackArtwork from './TrackArtwork'
-import { sessionProgress, SETTLED_TOP_PER_SONG } from '../lib/sessionProgress'
+import { sessionProgress } from '../lib/sessionProgress'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 
@@ -34,13 +34,13 @@ export default function ResultsView() {
             <p className='text-slate-600 text-lg font-medium mb-1'>{playlistName}</p>
           )}
           <p className='text-slate-500 text-sm'>
-            Based on {completedComparisons} comparisons
-            {tracks.length > 1 && ` — ${progress.perSong.toFixed(1)} per song`}
+            From your {completedComparisons} pick
+            {completedComparisons !== 1 ? 's' : ''}
           </p>
           {progress.topMayShift && (
             <p className='mt-2 text-xs text-amber-600'>
-              The top few places may still shift. A settled top usually takes
-              about {SETTLED_TOP_PER_SONG} comparisons per song.
+              The top few could still swap places. A couple more picks would
+              settle them.
             </p>
           )}
         </div>
@@ -60,14 +60,14 @@ export default function ResultsView() {
             className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors'
           >
             <Share2 size={20} />
-            Share Results
+            Share my ranking
           </button>
           <button
             onClick={() => setShowDuelModal(true)}
             className='flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors'
           >
             <Users size={20} />
-            Challenge Friend
+            Challenge a friend
           </button>
         </div>
 

@@ -36,7 +36,7 @@ export default function LiveRankings({
             <h3 className='text-lg font-bold'>Current Rankings</h3>
           </div>
           <p className='text-sm text-slate-500'>
-            {completedComparisons} comparison
+            {completedComparisons} pick
             {completedComparisons !== 1 ? 's' : ''}
           </p>
         </div>
@@ -45,7 +45,7 @@ export default function LiveRankings({
         <div className='flex-1 overflow-y-auto p-3 space-y-1.5'>
           {rankedTracks.length === 0 ? (
             <div className='text-center text-slate-500 py-8 text-sm'>
-              Make some comparisons to see rankings
+              Pick a few winners and your ranking shows up here
             </div>
           ) : (
             <>
@@ -105,7 +105,7 @@ export default function LiveRankings({
 
         {/* Footer Hint */}
         <div className='p-3 border-t border-slate-200 text-xs text-slate-500 text-center'>
-          Rankings update after each vote
+          Updates after every pick
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export default function LiveRankings({
                   <div>
                     <h3 className='font-bold'>Current Rankings</h3>
                     <p className='text-xs text-slate-500'>
-                      {completedComparisons} comparison
+                      {completedComparisons} pick
                       {completedComparisons !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -170,7 +170,7 @@ export default function LiveRankings({
               <div className='flex-1 overflow-y-auto p-4 space-y-2'>
                 {rankedTracks.length === 0 ? (
                   <div className='text-center text-slate-500 py-12'>
-                    Make some comparisons to see rankings
+                    Pick a few winners and your ranking shows up here
                   </div>
                 ) : (
                   rankedTracks.map((item, idx) => {
@@ -235,7 +235,7 @@ export default function LiveRankings({
 
               {/* Footer */}
               <div className='p-4 border-t border-slate-200 text-xs text-slate-500 text-center'>
-                Rankings update after each vote
+                Updates after every pick
               </div>
             </div>
           </>

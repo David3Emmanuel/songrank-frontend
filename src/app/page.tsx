@@ -185,7 +185,7 @@ function DashboardContent() {
         )}
 
         <p className='mt-8 text-center text-xs text-slate-400'>
-          Searching and importing use a free YouTube API key, set on the server.
+          Imports run on your own free YouTube API key.
         </p>
       </div>
 
