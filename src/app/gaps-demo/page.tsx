@@ -190,9 +190,9 @@ function Sidebar({
 export default function GapsDemoPage() {
   return (
     <main className='grid h-screen grid-cols-3 bg-gradient-to-b from-white to-sky-50 text-slate-900'>
+      <Sidebar label='0.06' alpha={0.06} />
       <Sidebar label='0.12' alpha={0.12} />
       <Sidebar label='0.18' alpha={0.18} />
-      <Sidebar label='0.24' alpha={0.24} />
     </main>
   )
 }
