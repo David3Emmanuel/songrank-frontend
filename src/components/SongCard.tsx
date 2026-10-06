@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Music } from 'lucide-react'
-import type { YouTubePlayer } from '../lib/youtube'
+import type { PlayerHandle } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 
 export interface InteractionState {
@@ -23,7 +23,7 @@ export interface SongCardProps {
   numberOfBars?: number
   // Player is owned by the pool in RankingArena — passed down here for
   // volume control during swipe interactions
-  playerRef: React.RefObject<YouTubePlayer | null>
+  playerRef: React.RefObject<PlayerHandle | null>
   // Display state driven by the pool
   isLoading?: boolean
   isPlaying?: boolean
