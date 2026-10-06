@@ -3,6 +3,7 @@
 import { useRanker } from '../context/RankerContext'
 import ShareCardModal from './ShareCardModal'
 import DuelInviteModal from './DuelInviteModal'
+import { sessionProgress, SETTLED_TOP_PER_SONG } from '../lib/sessionProgress'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -11,6 +12,7 @@ export default function ResultsView() {
   const { rankings, tracks, playlistName, completedComparisons, resetRanker } = useRanker()
   const [showShareModal, setShowShareModal] = useState(false)
   const [showDuelModal, setShowDuelModal] = useState(false)
+  const progress = sessionProgress(tracks.length, completedComparisons)
 
   const rankedTracks = rankings
     .map((r) => {
@@ -33,7 +35,14 @@ export default function ResultsView() {
           )}
           <p className='text-slate-500 text-sm'>
             Based on {completedComparisons} comparisons
+            {tracks.length > 1 && ` — ${progress.perSong.toFixed(1)} per song`}
           </p>
+          {progress.topMayShift && (
+            <p className='mt-2 text-xs text-amber-600'>
+              The top few places may still shift. A settled top usually takes
+              about {SETTLED_TOP_PER_SONG} comparisons per song.
+            </p>
+          )}
         </div>
 
         {/* Action Buttons */}

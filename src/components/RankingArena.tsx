@@ -27,6 +27,7 @@ import {
   type SlotReadiness,
 } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
+import { sessionProgress } from '../lib/sessionProgress'
 import { List, X } from 'lucide-react'
 import {
   useCallback,
@@ -194,6 +195,7 @@ export default function RankingArena() {
   } = useRanker()
 
   const [showPause, setShowPause] = useState(false)
+  const [stopSuggestionDismissed, setStopSuggestionDismissed] = useState(false)
 
   // Two reasons for the whole pool to go quiet: the pause menu is open, or the
   // tab is not being looked at. A ranking session you walked away from should
@@ -577,6 +579,9 @@ export default function RankingArena() {
   const [trackA, trackB] = currentPair
 
   const intents = intentsForPool(activeGroup, phase)
+  const progress = sessionProgress(tracks.length, completedComparisons)
+  const showStopSuggestion =
+    progress.suggestStop && !stopSuggestionDismissed && !showPause
   const debugRows: DebugSlotRow[] = slots.map((slot, index) => ({
     index,
     group: groupOfSlot(index),
@@ -639,24 +644,51 @@ export default function RankingArena() {
           />
         </div>
 
-        {/* Desktop: labelled pills */}
+        {/* Desktop: the session's progress, as a bar with no reading to interpret */}
         <div className='hidden md:flex absolute top-4 right-4 z-50 flex-col items-end gap-2 pointer-events-none'>
           <div className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 text-slate-700 text-sm shadow-sm'>
             Comparisons: {completedComparisons}
           </div>
-          <div className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center gap-2 shadow-sm'>
-            <span className='text-slate-700 text-sm'>Confidence:</span>
-            <div className='w-24 h-2 bg-slate-200 rounded-full overflow-hidden'>
+          <div
+            role='progressbar'
+            aria-label='Ranking confidence'
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(confidence * 100)}
+            className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-3 shadow-sm'
+          >
+            <div className='w-32 h-2 bg-slate-200 rounded-full overflow-hidden'>
               <div
                 className='h-full bg-linear-to-r from-amber-500 to-emerald-500 transition-all duration-500'
                 style={{ width: `${confidence * 100}%` }}
               />
             </div>
-            <span className='text-slate-900 text-sm font-bold'>
-              {Math.round(confidence * 100)}%
-            </span>
           </div>
         </div>
+
+        {/* A natural place to stop, offered once and dismissible */}
+        {showStopSuggestion && (
+          <div className='absolute right-4 top-24 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-emerald-200 bg-white/95 p-3 shadow-lg backdrop-blur-md'>
+            <p className='text-sm text-slate-700'>
+              You can stop here — most of the order is set, though the top three
+              usually still shifts.
+            </p>
+            <div className='mt-3 flex gap-2'>
+              <button
+                onClick={forceFinish}
+                className='flex-1 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800'
+              >
+                Finish
+              </button>
+              <button
+                onClick={() => setStopSuggestionDismissed(true)}
+                className='flex-1 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200'
+              >
+                Keep going
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Pause Overlay */}
         {showPause && (
