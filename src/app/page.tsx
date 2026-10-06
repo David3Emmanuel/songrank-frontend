@@ -125,6 +125,48 @@ function DashboardContent() {
   )
 
   /**
+   * What the results panel lists.
+   *
+   * Every entity the search returned, in its order, minus the song rows that have
+   * no playable track behind them: those are the rows the import folded into
+   * another upload or dropped as not a song, and the "Skipped" line above the
+   * list already accounts for them. A row whose Add button does nothing is worse
+   * than a row that is not there.
+   *
+   * Songs that the entity slice left out are appended, so nothing addable is
+   * hidden by where a row happened to fall.
+   */
+  const shownResults = useMemo(() => {
+    const rows: MusicSearchEntity[] = []
+    const listed = new Set<string>()
+
+    for (const entity of entities) {
+      if (entity.kind === 'song' || entity.kind === 'video') {
+        if (!tracksById.has(entity.id)) continue
+        listed.add(entity.id)
+      }
+      rows.push(entity)
+    }
+
+    for (const track of candidates) {
+      if (listed.has(track.id)) continue
+      rows.push({
+        kind: 'song',
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        year: '',
+        detail: '',
+        durationMs: track.durationMs,
+        coverImage: track.coverImage,
+      })
+    }
+
+    return rows
+  }, [entities, candidates, tracksById])
+
+  /**
    * Adds songs to the draft, skipping any already in it.
    *
    * Appending rather than replacing means a search can top up a pasted list,
@@ -304,7 +346,7 @@ function DashboardContent() {
             <div className='mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-3'>
               <div className='flex items-center justify-between gap-2'>
                 <p className='min-w-0 truncate text-sm font-semibold'>
-                  {entities.length} result{entities.length !== 1 ? 's' : ''} for “
+                  {shownResults.length} result{shownResults.length !== 1 ? 's' : ''} for “
                   {foundFor.query}”
                 </p>
                 <div className='flex shrink-0 items-center gap-1'>
@@ -350,7 +392,7 @@ function DashboardContent() {
               )}
 
               <ul className='mt-2 max-h-[38vh] space-y-1.5 overflow-y-auto pr-1'>
-                {entities.map((entity) => {
+                {shownResults.map((entity) => {
                   // Songs come back as playable tracks; everything else is a thing
                   // to open, which this slice does not do yet.
                   const track = tracksById.get(entity.id)
