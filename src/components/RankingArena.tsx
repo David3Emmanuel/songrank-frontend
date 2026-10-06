@@ -692,7 +692,14 @@ export default function RankingArena() {
 
         {/* Pause Overlay */}
         {showPause && (
-          <div className='absolute inset-0 bg-slate-900/30 backdrop-blur-sm z-[60] flex items-center justify-center'>
+          <div
+            className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-[60] flex items-center justify-center'
+            onClick={(event) => {
+              // Only a click that landed on the scrim itself, so dragging or
+              // selecting inside the panel cannot dismiss it.
+              if (event.target === event.currentTarget) setShowPause(false)
+            }}
+          >
             <div className='bg-white/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-200 shadow-xl'>
               <h2 className='text-2xl font-bold text-slate-900 mb-4'>Paused</h2>
               <p className='text-slate-600 mb-6'>
