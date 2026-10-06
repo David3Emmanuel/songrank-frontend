@@ -330,7 +330,27 @@ export async function generateShareCard({
   }
 
   // Everything past third
+  //
+  // One panel behind all of them, rather than a bordered box each. Seven boxes
+  // stacked read as cramped even with no spacing between them, and the borders
+  // ate the width. A single panel gives the rows a shared surface and the room
+  // back, and the badges and covers carry the rhythm instead.
+  if (rest.length > 0) {
+    const panelHeight =
+      rowsPerColumn * rowHeight + Math.max(0, rowsPerColumn - 1) * rowGap
 
+    for (let pane = 0; pane < rowColumns; pane++) {
+      if (rest.length <= pane * rowsPerColumn) continue
+
+      const paneX = marginX + pane * (rowPaneWidth + rowPaneGap)
+      ctx.fillStyle = colours.card
+      ctx.strokeStyle = colours.border
+      ctx.lineWidth = 2
+      roundRect(ctx, paneX, rowsTop, rowPaneWidth, panelHeight, 26)
+      ctx.fill()
+      ctx.stroke()
+    }
+  }
 
   rest.forEach((track, index) => {
     const place = index + 4
@@ -343,13 +363,6 @@ export async function generateShareCard({
     const paneX = marginX + column * (rowPaneWidth + rowPaneGap)
     const y = rowsTop + rowInColumn * (rowHeight + rowGap)
     const colour = PLACE_COLOURS[place - 1] ?? colours.border
-
-    ctx.fillStyle = colours.card
-    ctx.strokeStyle = colours.border
-    ctx.lineWidth = 2
-    roundRect(ctx, paneX, y, rowPaneWidth, rowHeight, 20)
-    ctx.fill()
-    ctx.stroke()
 
     // Place badge
     const badgeX = paneX + (tall ? 50 : 42)
