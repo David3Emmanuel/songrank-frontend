@@ -35,6 +35,7 @@ import { isSameSong } from '../lib/alternatives'
 import { OFFSCREEN, PLAYER_OPTS } from '../lib/playerOptions'
 import { List, ListChecks, Pause, Play, RotateCcw, Undo2, X } from 'lucide-react'
 import {
+  createRef,
   useCallback,
   useEffect,
   useMemo,
@@ -264,18 +265,24 @@ export default function RankingArena() {
   // Mirror of slots readable synchronously in async callbacks (no stale closure)
   const slotsRef = useRef<SlotState[]>(emptySlots())
 
-  const slot0Ref = useRef<PlayerHandle | null>(null)
-  const slot1Ref = useRef<PlayerHandle | null>(null)
-  const slot2Ref = useRef<PlayerHandle | null>(null)
-  const slot3Ref = useRef<PlayerHandle | null>(null)
+  // One ref per slot, built from the pool's own count. Four hand-written refs and
+  // an array of them was how this started, and when the pool grew to six the last
+  // two slots had nothing to write to: the players' onReady threw on undefined and
+  // the throwing handler took other players' handlers down with it, which showed up
+  // as one side of a comparison never starting.
   // Memoised so the array has a stable identity: it is what SongCard mixes with
   // during a swipe and a dependency of the reconcile below.
   const slotRefs = useMemo(
-    () => [slot0Ref, slot1Ref, slot2Ref, slot3Ref],
-    [slot0Ref, slot1Ref, slot2Ref, slot3Ref],
+    () =>
+      Array.from({ length: SLOT_COUNT }, () =>
+        createRef<PlayerHandle | null>(),
+      ),
+    [],
   )
   /** What was last applied to each player, so an unchanged slot costs nothing. */
-  const appliedRef = useRef<Array<AppliedSlot | null>>([null, null, null, null])
+  const appliedRef = useRef<Array<AppliedSlot | null>>(
+    Array.from({ length: SLOT_COUNT }, () => null),
+  )
 
   // Ref version avoids stale closures in async callbacks; state drives render
   const activeGroupRef = useRef<Group>(0)
