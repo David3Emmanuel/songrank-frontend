@@ -46,6 +46,33 @@ interface PlaylistItemsResponse {
  */
 const MAX_PLAYLIST_PAGES = 40
 
+/**
+ * A refusal from the Data API, carrying enough to say something useful.
+ *
+ * Without this a quota error parses into an object with no `items`, looks like
+ * an empty result, and the user is told their search was too narrow when in fact
+ * YouTube turned it down.
+ */
+export class YouTubeApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, reason: string) {
+    super(reason)
+    this.name = 'YouTubeApiError'
+    this.status = status
+  }
+}
+
+/** The Data API's own explanation, when it gives one. */
+async function apiErrorReason(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: { message?: string } }
+    return body.error?.message ?? `HTTP ${res.status}`
+  } catch {
+    return `HTTP ${res.status}`
+  }
+}
+
 export class YouTubeAdapter {
   private apiKey: string
   private accessToken?: string
@@ -106,6 +133,12 @@ export class YouTubeAdapter {
           key: this.apiKey,
         }),
     )
+    if (!playlistRes.ok) {
+      throw new YouTubeApiError(
+        playlistRes.status,
+        await apiErrorReason(playlistRes),
+      )
+    }
     const playlistData = await playlistRes.json()
 
     if (!playlistData.items?.[0]) {
@@ -130,6 +163,12 @@ export class YouTubeAdapter {
       const itemsRes = await fetch(
         `https://www.googleapis.com/youtube/v3/playlistItems?${params}`,
       )
+      if (!itemsRes.ok) {
+        throw new YouTubeApiError(
+          itemsRes.status,
+          await apiErrorReason(itemsRes),
+        )
+      }
       const pageData = (await itemsRes.json()) as PlaylistItemsResponse
       items.push(...(pageData.items ?? []))
 
@@ -193,6 +232,9 @@ export class YouTubeAdapter {
           key: this.apiKey,
         }),
     )
+    if (!res.ok) {
+      throw new YouTubeApiError(res.status, await apiErrorReason(res))
+    }
     const data = (await res.json()) as SearchListResponse
 
     const found = (data.items ?? []).filter(

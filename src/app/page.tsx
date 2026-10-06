@@ -131,14 +131,18 @@ function DashboardContent() {
       const data = await res.json()
 
       if (!res.ok) throw new Error(data.error ?? 'Search failed')
-      if (!Array.isArray(data.tracks) || data.tracks.length < 2) {
-        throw new Error(`Not enough songs found for “${trimmed}”`)
+      if (!Array.isArray(data.tracks) || data.tracks.length === 0) {
+        throw new Error(`Nothing musical came back for “${trimmed}”.`)
       }
 
       addToDraft(data.tracks as Track[], data.name ?? trimmed)
       setQuery('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed')
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'That search did not work. Give it another go in a moment.',
+      )
     } finally {
       setIsSearching(false)
     }
