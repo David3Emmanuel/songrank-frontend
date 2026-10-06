@@ -106,12 +106,12 @@ export default function SongCard({
       style={{ transform: `scale(${scale})`, opacity }}
     >
       <div
-        className='w-full h-full rounded-2xl shadow-2xl flex items-center justify-center border-2 border-white/10 relative overflow-hidden'
-        style={{ backgroundColor: '#1f2937' }}
+        className='w-full h-full rounded-2xl shadow-2xl flex items-center justify-center border-2 border-slate-200 relative overflow-hidden'
+        style={{ backgroundColor: '#f1f5f9' }}
       >
         {/* Eclipse Flash Effect */}
         {isStrong && (
-          <div className='absolute inset-0 bg-white/20 animate-pulse' />
+          <div className='absolute inset-0 bg-slate-900/10 animate-pulse' />
         )}
 
         <TrackArtwork
@@ -124,16 +124,16 @@ export default function SongCard({
 
         {/* Loading Spinner */}
         {isLoading && !hasError && !isFallbackLoading && (
-          <div className='absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl'>
-            <div className='w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+          <div className='absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl'>
+            <div className='w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin' />
           </div>
         )}
 
         {/* Fallback Search Overlay */}
         {isFallbackLoading && (
-          <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-2xl gap-2'>
-            <div className='w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin' />
-            <span className='text-white/70 text-xs text-center px-3 leading-tight'>
+          <div className='absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl gap-2'>
+            <div className='w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin' />
+            <span className='text-slate-600 text-xs text-center px-3 leading-tight'>
               Finding alternative…
             </span>
           </div>
@@ -141,9 +141,9 @@ export default function SongCard({
 
         {/* Error Overlay */}
         {hasError && (
-          <div className='absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl gap-1'>
+          <div className='absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl gap-1'>
             <span className='text-2xl'>⚠️</span>
-            <span className='text-white/60 text-xs text-center px-3 leading-tight'>
+            <span className='text-slate-500 text-xs text-center px-3 leading-tight'>
               Audio unavailable
             </span>
           </div>
@@ -155,7 +155,7 @@ export default function SongCard({
             Array.from({ length: numberOfBars }).map((_, i) => (
               <div
                 key={i}
-                className='w-1 bg-white/50 rounded-full transition-all duration-100'
+                className='w-1 bg-slate-900/50 rounded-full transition-all duration-100'
                 style={{ height: `${volume * 100 * Math.random()}%` }}
               />
             ))}

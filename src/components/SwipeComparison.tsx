@@ -224,7 +224,7 @@ export default function SwipeComparison({
 
   return (
     <div
-      className='w-full h-full bg-slate-900 text-white overflow-hidden flex flex-col font-sans select-none relative'
+      className='w-full h-full bg-transparent text-slate-900 overflow-hidden flex flex-col font-sans select-none relative'
       onMouseMove={onMouseMove}
       onTouchMove={onTouchMove}
       ref={containerRef}
@@ -239,7 +239,7 @@ export default function SwipeComparison({
       <div className='absolute top-0 left-0 right-0 p-6 text-center z-10 pointer-events-none'>
         <h2
           className={`text-xl font-bold tracking-wider transition-all duration-200 ${
-            zone.includes('strong') ? 'scale-110 text-white' : 'text-white/70'
+            zone.includes('strong') ? 'scale-110 text-slate-900' : 'text-slate-600'
           }`}
         >
           {feedback}
@@ -247,17 +247,17 @@ export default function SwipeComparison({
         <div className='flex justify-center gap-1 mt-2'>
           <div
             className={`w-2 h-2 rounded-full ${
-              zone === 'neutral' ? 'bg-white' : 'bg-white/20'
+              zone === 'neutral' ? 'bg-slate-900' : 'bg-slate-200'
             }`}
           />
           <div
             className={`w-2 h-2 rounded-full ${
-              zone.includes('weak') ? 'bg-white' : 'bg-white/20'
+              zone.includes('weak') ? 'bg-slate-900' : 'bg-slate-200'
             }`}
           />
           <div
             className={`w-2 h-2 rounded-full ${
-              zone.includes('strong') ? 'bg-white' : 'bg-white/20'
+              zone.includes('strong') ? 'bg-slate-900' : 'bg-slate-200'
             }`}
           />
         </div>
@@ -295,11 +295,11 @@ export default function SwipeComparison({
         {lastVote ? (
           // SUCCESS STATE
           <div className='z-50 flex flex-col items-center animate-bounce'>
-            <div className='w-32 h-32 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.5)]'>
+            <div className='w-32 h-32 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20'>
               {lastVote === 'Tie' ? (
                 <Minus size={48} />
               ) : (
-                <Heart size={48} className='fill-current text-red-500' />
+                <Heart size={48} className='fill-current text-rose-600' />
               )}
             </div>
           </div>
@@ -316,13 +316,13 @@ export default function SwipeComparison({
                 ? 'none'
                 : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
-            className='z-50 w-24 h-24 md:w-32 md:h-32 rounded-full bg-white/10 backdrop-blur-md border border-white/30 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-center relative touch-none hover:bg-white/20 transition-colors'
+            className='z-50 w-24 h-24 md:w-32 md:h-32 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-lg shadow-slate-900/5 flex items-center justify-center relative touch-none hover:bg-white transition-colors'
           >
             {/* Center Icon */}
             {zone === 'neutral' && (
-              <Music className='text-white opacity-80' size={32} />
+              <Music className='text-slate-500' size={32} />
             )}
-            {zone === 'tie' && <Minus className='text-white' size={40} />}
+            {zone === 'tie' && <Minus className='text-slate-700' size={40} />}
             {(zone === 'weak-a' || zone === 'strong-a') && (
               <div
                 className='font-black text-2xl'
@@ -344,9 +344,9 @@ export default function SwipeComparison({
             <div
               className={`absolute inset-0 rounded-full border-4 transition-all duration-200 ${
                 zone.includes('strong')
-                  ? 'border-white opacity-100 scale-110'
+                  ? 'border-slate-900 opacity-100 scale-110'
                   : zone.includes('weak')
-                    ? 'border-white/50 opacity-100'
+                    ? 'border-slate-300 opacity-100'
                     : 'border-transparent opacity-0'
               }`}
             />
@@ -361,8 +361,8 @@ export default function SwipeComparison({
         }`}
       >
         <div
-          className={`w-16 h-16 rounded-full border-2 border-dashed border-white flex items-center justify-center transition-all ${
-            zone === 'tie' ? 'scale-125 bg-white/10 border-solid' : ''
+          className={`w-16 h-16 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center transition-all ${
+            zone === 'tie' ? 'scale-125 bg-slate-100 border-solid' : ''
           }`}
         >
           <ArrowDown size={24} />

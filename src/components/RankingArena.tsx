@@ -5,6 +5,7 @@ import SwipeComparison from '../components/SwipeComparison'
 import SongCard from '../components/SongCard'
 import LiveRankings from '../components/LiveRankings'
 import PlayerDebugHud, { type DebugSlotRow } from '../components/PlayerDebugHud'
+import LandingBackground from '../components/LandingBackground'
 import YouTube from '../lib/youtube'
 import {
   commandsForSlot,
@@ -534,7 +535,9 @@ export default function RankingArena() {
   }))
 
   return (
-    <div className='flex h-screen'>
+    <div className='relative flex h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50'>
+      <LandingBackground />
+
       {/* ── Always-mounted pool players (4 iframes, always hidden) ── */}
       {slots.map((slot, i) =>
         slot.videoId ? (
@@ -563,38 +566,38 @@ export default function RankingArena() {
         {/* Pause Menu Button */}
         <button
           onClick={() => setShowPause(!showPause)}
-          className='absolute top-4 left-4 z-50 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center hover:bg-white/20 transition-colors'
+          className='absolute top-4 left-4 z-50 w-12 h-12 rounded-full bg-white/80 backdrop-blur-md border border-slate-200 flex items-center justify-center hover:bg-white shadow-sm transition-colors'
           aria-label='Menu'
         >
           {showPause ? (
-            <X size={24} className='text-white' />
+            <X size={24} className='text-slate-600' />
           ) : (
-            <List size={24} className='text-white' />
+            <List size={24} className='text-slate-600' />
           )}
         </button>
 
         {/* Mobile: full-width confidence bar */}
-        <div className='md:hidden absolute top-0 left-0 right-0 z-50 h-0.5 bg-white/10 pointer-events-none'>
+        <div className='md:hidden absolute top-0 left-0 right-0 z-50 h-0.5 bg-slate-200 pointer-events-none'>
           <div
-            className='h-full bg-linear-to-r from-yellow-500 to-green-500 transition-all duration-500'
+            className='h-full bg-linear-to-r from-amber-500 to-emerald-500 transition-all duration-500'
             style={{ width: `${confidence * 100}%` }}
           />
         </div>
 
         {/* Desktop: labelled pills */}
         <div className='hidden md:flex absolute top-4 right-4 z-50 flex-col items-end gap-2 pointer-events-none'>
-          <div className='bg-white/10 backdrop-blur-md border border-white/30 rounded-full px-4 py-2 text-white text-sm'>
+          <div className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 text-slate-700 text-sm shadow-sm'>
             Comparisons: {completedComparisons}
           </div>
-          <div className='bg-white/10 backdrop-blur-md border border-white/30 rounded-full px-4 py-2 flex items-center gap-2'>
-            <span className='text-white text-sm'>Confidence:</span>
-            <div className='w-24 h-2 bg-white/20 rounded-full overflow-hidden'>
+          <div className='bg-white/80 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center gap-2 shadow-sm'>
+            <span className='text-slate-700 text-sm'>Confidence:</span>
+            <div className='w-24 h-2 bg-slate-200 rounded-full overflow-hidden'>
               <div
-                className='h-full bg-linear-to-r from-yellow-500 to-green-500 transition-all duration-500'
+                className='h-full bg-linear-to-r from-amber-500 to-emerald-500 transition-all duration-500'
                 style={{ width: `${confidence * 100}%` }}
               />
             </div>
-            <span className='text-white text-sm font-bold'>
+            <span className='text-slate-900 text-sm font-bold'>
               {Math.round(confidence * 100)}%
             </span>
           </div>
@@ -602,10 +605,10 @@ export default function RankingArena() {
 
         {/* Pause Overlay */}
         {showPause && (
-          <div className='absolute inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center'>
-            <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-white/20'>
-              <h2 className='text-2xl font-bold text-white mb-4'>Paused</h2>
-              <p className='text-white/70 mb-6'>
+          <div className='absolute inset-0 bg-slate-900/30 backdrop-blur-sm z-40 flex items-center justify-center'>
+            <div className='bg-white/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-200 shadow-xl'>
+              <h2 className='text-2xl font-bold text-slate-900 mb-4'>Paused</h2>
+              <p className='text-slate-600 mb-6'>
                 You&apos;ve completed {completedComparisons} comparisons.
                 Current confidence: {Math.round(confidence * 100)}%
               </p>
@@ -622,11 +625,11 @@ export default function RankingArena() {
                     setShowPause(false)
                   }}
                   disabled={!canUndo}
-                  className='w-full bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors text-left px-4'
+                  className='w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 font-semibold py-3 rounded-lg transition-colors text-left px-4'
                 >
                   ↩ Undo Last Swipe
                   {canUndo && (
-                    <span className='float-right text-white/50 text-xs font-normal mt-0.5'>
+                    <span className='float-right text-slate-400 text-xs font-normal mt-0.5'>
                       Ctrl+Z
                     </span>
                   )}
@@ -642,7 +645,7 @@ export default function RankingArena() {
                       setShowPause(false)
                     }
                   }}
-                  className='w-full bg-red-500/20 hover:bg-red-500/40 text-white font-semibold py-3 rounded-lg transition-colors text-left px-4'
+                  className='w-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold py-3 rounded-lg transition-colors text-left px-4'
                 >
                   ↺ Restart from Scratch
                 </button>

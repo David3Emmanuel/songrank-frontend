@@ -43,7 +43,7 @@ export default function TrackArtwork({
   if (!src || failedSrc === src) {
     return (
       <div className={fallbackClassName}>
-        <Music className='h-1/2 w-1/2 max-h-16 max-w-16 min-h-4 min-w-4 text-white/30' />
+        <Music className='h-1/2 w-1/2 max-h-16 max-w-16 min-h-4 min-w-4 text-slate-300' />
       </div>
     )
   }

@@ -40,13 +40,13 @@ export default function PlayerDebugHud({
   phase,
 }: PlayerDebugHudProps) {
   return (
-    <div className='pointer-events-none fixed bottom-2 left-2 z-[9999] max-w-[96vw] overflow-hidden rounded-lg border border-white/20 bg-black/85 p-2 font-mono text-[10px] leading-tight text-white/90 shadow-2xl'>
-      <div className='mb-1 text-white/50'>
+    <div className='pointer-events-none fixed bottom-2 left-2 z-[9999] max-w-[96vw] overflow-hidden rounded-lg border border-slate-300 bg-white/95 p-2 font-mono text-[10px] leading-tight text-slate-700 shadow-2xl'>
+      <div className='mb-1 text-slate-400'>
         pool · activeGroup={activeGroup} · phase={phase} · debug=players
       </div>
       <table className='border-collapse'>
         <thead>
-          <tr className='text-white/40'>
+          <tr className='text-slate-400'>
             <th className='pr-2 text-left font-normal'>slot</th>
             <th className='pr-2 text-left font-normal'>g</th>
             <th className='pr-2 text-left font-normal'>intent</th>
@@ -67,12 +67,12 @@ export default function PlayerDebugHud({
                 key={row.index}
                 className={
                   leaking
-                    ? 'text-red-400'
+                    ? 'text-rose-600'
                     : stalled
-                      ? 'text-amber-300'
+                      ? 'text-amber-600'
                       : row.intent === 'playing'
-                        ? 'text-emerald-300'
-                        : 'text-white/70'
+                        ? 'text-emerald-600'
+                        : 'text-slate-600'
                 }
               >
                 <td className='pr-2'>{row.index}</td>
@@ -92,7 +92,7 @@ export default function PlayerDebugHud({
                 <td className='max-w-[180px] truncate'>
                   {row.title || '—'}
                   {row.isFallback ? ' (fallback)' : ''}
-                  <span className='text-white/30'> {row.videoId || '—'}</span>
+                  <span className='text-slate-400'> {row.videoId || '—'}</span>
                 </td>
               </tr>
             )
