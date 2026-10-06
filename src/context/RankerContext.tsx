@@ -33,6 +33,17 @@ interface RankerContextValue {
 
 const RankerContext = createContext<RankerContextValue | null>(null)
 
+/** Resolve a pair of song ids to tracks, or null if either one is missing. */
+function pairFromIds(
+  ids: [string, string] | null,
+  trackList: Track[],
+): [Track, Track] | null {
+  if (!ids) return null
+  const a = trackList.find((t) => t.id === ids[0])
+  const b = trackList.find((t) => t.id === ids[1])
+  return a && b ? [a, b] : null
+}
+
 export function RankerProvider({ children }: { children: React.ReactNode }) {
   const [ranker, setRanker] = useState<PlaylistRanker | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
@@ -45,17 +56,16 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
   const [completedComparisons, setCompletedComparisons] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
 
-  // Speculatively peek one pair ahead so we can preload audio early.
-  // The prediction won't always match the real next pair (state changes after
-  // each vote), but it warms up the CDN connection and YouTube player enough
-  // to meaningfully reduce buffering on the following pair.
-  const peekNextPair = useCallback(
+  // Commit the pair for the round after this one so the pool can preload it.
+  //
+  // This has to be a commitment rather than a guess. getNextPair() picks its
+  // pair with weighted randomness, so calling it twice for the same history
+  // returns two different pairs. The pool preloads whatever is committed here
+  // and promotes it a round later, so a second speculative draw meant the
+  // audible pair was almost never the pair on screen.
+  const commitNextPair = useCallback(
     (r: PlaylistRanker, trackList: Track[]) => {
-      const ids = r.getNextPair()
-      if (!ids) { setNextPair(null); return }
-      const nA = trackList.find((t) => t.id === ids[0])
-      const nB = trackList.find((t) => t.id === ids[1])
-      setNextPair(nA && nB ? [nA, nB] : null)
+      setNextPair(pairFromIds(r.getNextPair(), trackList))
     },
     [],
   )
@@ -76,20 +86,16 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     setPairHistory([])
 
     // Get first pair
-    const pair = newRanker.getNextPair()
+    const pair = pairFromIds(newRanker.getNextPair(), trackList)
     if (pair) {
-      const trackA = trackList.find((t) => t.id === pair[0])
-      const trackB = trackList.find((t) => t.id === pair[1])
-      if (trackA && trackB) {
-        setCurrentPair([trackA, trackB])
-        peekNextPair(newRanker, trackList)
-      }
+      setCurrentPair(pair)
+      commitNextPair(newRanker, trackList)
     }
 
     // Initial rankings
     setRankings(newRanker.computeRankings())
     setConfidence(newRanker.getConfidence())
-  }, [peekNextPair])
+  }, [commitNextPair])
 
   const submitVote = useCallback(
     (feedback: Feedback) => {
@@ -121,26 +127,21 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Get next pair
-      const nextIds = ranker.getNextPair()
-      if (nextIds) {
-        const nextTrackA = tracks.find((t) => t.id === nextIds[0])
-        const nextTrackB = tracks.find((t) => t.id === nextIds[1])
-        if (nextTrackA && nextTrackB) {
-          setCurrentPair([nextTrackA, nextTrackB])
-          peekNextPair(ranker, tracks)
-        } else {
-          setIsComplete(true)
-          setCurrentPair(null)
-          setNextPair(null)
-        }
-      } else {
+      // Show the pair already committed for this round, so the group the pool
+      // has preloaded is the group it promotes. Only a restored session or an
+      // undo arrives here without one.
+      const upcoming = nextPair ?? pairFromIds(ranker.getNextPair(), tracks)
+      if (!upcoming) {
         setIsComplete(true)
         setCurrentPair(null)
         setNextPair(null)
+        return
       }
+
+      setCurrentPair(upcoming)
+      commitNextPair(ranker, tracks)
     },
-    [ranker, currentPair, tracks, peekNextPair],
+    [ranker, currentPair, tracks, nextPair, commitNextPair],
   )
 
   const forceFinish = useCallback(() => {
@@ -171,12 +172,15 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     const previousPair = pairHistory[pairHistory.length - 1]
     setPairHistory((prev) => prev.slice(0, -1))
     setCurrentPair(previousPair)
-    setNextPair(null) // speculative next is stale after undo
+    // The pair being undone is exactly what comes next this time, so commit it
+    // rather than drawing a fresh one: undo becomes a step back, and re-voting
+    // replays the same round instead of a random one.
+    setNextPair(currentPair)
     setCompletedComparisons((c) => Math.max(0, c - 1))
     setIsComplete(false)
     setRankings(ranker.computeRankings())
     setConfidence(ranker.getConfidence())
-  }, [ranker, pairHistory])
+  }, [ranker, pairHistory, currentPair])
 
   const restartRanker = useCallback(() => {
     if (tracks.length === 0) return
@@ -218,13 +222,12 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
         setIsComplete(parsed.isComplete)
 
         if (!parsed.isComplete) {
-          const pair = restoredRanker.getNextPair()
+          const pair = pairFromIds(restoredRanker.getNextPair(), parsed.tracks)
           if (pair) {
-            const trackA = parsed.tracks.find((t: Track) => t.id === pair[0])
-            const trackB = parsed.tracks.find((t: Track) => t.id === pair[1])
-            if (trackA && trackB) {
-              setCurrentPair([trackA, trackB])
-            }
+            setCurrentPair(pair)
+            // Commit the following pair too, or the pool starts this session
+            // with nothing preloaded.
+            setNextPair(pairFromIds(restoredRanker.getNextPair(), parsed.tracks))
           }
         }
 
