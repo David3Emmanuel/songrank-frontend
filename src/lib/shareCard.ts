@@ -394,26 +394,31 @@ export async function generateShareCard({
     const artY = y + (rowHeight - rowArt) / 2
     drawCover(ctx, cover, artX, artY, rowArt, 14, colours.border)
 
-    // Title, artist and length
+    // Title on the left, artist and length right-aligned, sharing one baseline
+    // so the row reads as a line rather than a stack.
     const textX = artX + rowArt + (tall ? 28 : 22)
-    const maxWidth = paneX + rowPaneWidth - 30 - textX
+    const metaRight = paneX + rowPaneWidth - 30
     const length = formatDurationMs(track.durationMs)
+    const meta = length ? `${track.artist} · ${length}` : track.artist
+    const baseline = y + rowHeight / 2 + Math.round(rowTitleFont * 0.35)
+
+    ctx.textAlign = 'right'
+    ctx.fillStyle = colours.muted
+    ctx.font = `${rowSubFont}px system-ui, sans-serif`
+    // Never more than half the line, so a long artist cannot swallow the title.
+    const metaWidth = Math.min(
+      ctx.measureText(meta).width,
+      (metaRight - textX) * 0.5,
+    )
+    ctx.fillText(truncate(ctx, meta, metaWidth), metaRight, baseline)
 
     ctx.textAlign = 'left'
     ctx.fillStyle = colours.text
     ctx.font = `bold ${rowTitleFont}px system-ui, sans-serif`
     ctx.fillText(
-      truncate(ctx, track.title, maxWidth),
+      truncate(ctx, track.title, metaRight - metaWidth - 28 - textX),
       textX,
-      y + rowHeight / 2 - Math.round(rowSubFont * 0.4),
-    )
-
-    ctx.fillStyle = colours.muted
-    ctx.font = `${rowSubFont}px system-ui, sans-serif`
-    ctx.fillText(
-      truncate(ctx, length ? `${track.artist} · ${length}` : track.artist, maxWidth),
-      textX,
-      y + rowHeight / 2 + Math.round(rowSubFont * 1.2),
+      baseline,
     )
   })
 
