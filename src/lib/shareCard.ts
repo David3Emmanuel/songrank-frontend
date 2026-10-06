@@ -120,6 +120,13 @@ export interface ShareCardInput {
   /** How many songs the ranking covered, so a top three can be put in context. */
   totalSongs: number
   config: ShareCardConfig
+  /**
+   * How a row lays out its text. Both arrangements are drawn while the densest
+   * card is being chosen between them; one of them goes once that is settled.
+   */
+  rowText?: 'stacked' | 'inline'
+  /** Multiplier on the row type, for comparing sizes. */
+  rowTitleScale?: number
 }
 
 /**
@@ -134,6 +141,8 @@ export async function generateShareCard({
   playlistName,
   totalSongs,
   config,
+  rowText = 'stacked',
+  rowTitleScale = 1,
 }: ShareCardInput): Promise<Blob> {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
@@ -394,27 +403,58 @@ export async function generateShareCard({
     const artY = y + (rowHeight - rowArt) / 2
     drawCover(ctx, cover, artX, artY, rowArt, 14, colours.border)
 
-    // Title, artist and length
+    // Row text. Two arrangements are drawn while the densest card is being
+    // decided between them: the artist and length stacked under the title, or
+    // lined up on the right of it. `rowTitleScale` exists for the same
+    // comparison, to see whether smaller type reads better than moving it.
     const textX = artX + rowArt + (tall ? 28 : 22)
-    const maxWidth = paneX + rowPaneWidth - 30 - textX
+    const metaRight = paneX + rowPaneWidth - 30
     const length = formatDurationMs(track.durationMs)
+    const meta = length ? `${track.artist} · ${length}` : track.artist
+    const scale = rowTitleScale
+    const titleFont = Math.round(rowTitleFont * scale)
+    const subFont = Math.round(rowSubFont * scale)
 
-    ctx.textAlign = 'left'
-    ctx.fillStyle = colours.text
-    ctx.font = `bold ${rowTitleFont}px system-ui, sans-serif`
-    ctx.fillText(
-      truncate(ctx, track.title, maxWidth),
-      textX,
-      y + rowHeight / 2 - Math.round(rowSubFont * 0.4),
-    )
+    if (rowText === 'inline') {
+      const baseline = y + rowHeight / 2 + Math.round(titleFont * 0.35)
 
-    ctx.fillStyle = colours.muted
-    ctx.font = `${rowSubFont}px system-ui, sans-serif`
-    ctx.fillText(
-      truncate(ctx, length ? `${track.artist} · ${length}` : track.artist, maxWidth),
-      textX,
-      y + rowHeight / 2 + Math.round(rowSubFont * 1.2),
-    )
+      ctx.textAlign = 'right'
+      ctx.fillStyle = colours.muted
+      ctx.font = `${subFont}px system-ui, sans-serif`
+      const metaWidth = Math.min(
+        ctx.measureText(meta).width,
+        (metaRight - textX) * 0.5,
+      )
+      ctx.fillText(truncate(ctx, meta, metaWidth), metaRight, baseline)
+
+      ctx.textAlign = 'left'
+      ctx.fillStyle = colours.text
+      ctx.font = `bold ${titleFont}px system-ui, sans-serif`
+      ctx.fillText(
+        truncate(ctx, track.title, metaRight - metaWidth - 28 - textX),
+        textX,
+        baseline,
+      )
+    } else {
+      const maxWidth = metaRight - textX
+
+      ctx.textAlign = 'left'
+      ctx.fillStyle = colours.text
+      ctx.font = `bold ${titleFont}px system-ui, sans-serif`
+      ctx.fillText(
+        truncate(ctx, track.title, maxWidth),
+        textX,
+        y + rowHeight / 2 - Math.round(subFont * 0.4),
+      )
+
+      ctx.fillStyle = colours.muted
+      ctx.font = `${subFont}px system-ui, sans-serif`
+      ctx.fillText(
+        truncate(ctx, meta, maxWidth),
+        textX,
+        y + rowHeight / 2 + Math.round(subFont * 1.2),
+      )
+    }
   })
 
   // Footer. No domain is claimed, since this app does not have one to promise.
