@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import { draftEstimate, LONG_LIST_SONGS } from '../src/lib/sessionProgress.ts'
 import {
+  coverCrop,
   formatDurationMs,
   largerThumbnailUrl,
   smallerThumbnailUrl,
@@ -97,4 +98,17 @@ test('there is nothing to ask for when the source has no bigger version', () => 
   assert.equal(largerThumbnailUrl('https://i.ytimg.com/vi/abc/maxresdefault.jpg'), undefined)
   assert.equal(largerThumbnailUrl(null), undefined)
   assert.equal(largerThumbnailUrl(undefined), undefined)
+})
+
+test('a wide cover is cropped to a square from the middle, never squashed', () => {
+  // A 16:9 video thumbnail into a square box.
+  assert.deepEqual(coverCrop(320, 180), { sx: 70, sy: 0, sw: 180, sh: 180 })
+  // Square art is left whole.
+  assert.deepEqual(coverCrop(120, 120), { sx: 0, sy: 0, sw: 120, sh: 120 })
+  // Portrait art is cropped the other way round.
+  assert.deepEqual(coverCrop(100, 200), { sx: 0, sy: 50, sw: 100, sh: 100 })
+})
+
+test('a cover with no usable size still yields a drawable rectangle', () => {
+  assert.deepEqual(coverCrop(0, 0), { sx: 0, sy: 0, sw: 1, sh: 1 })
 })

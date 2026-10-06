@@ -89,7 +89,6 @@ export interface DuelComparison {
 // Share Card types
 export interface ShareCardConfig {
   top_n: number
-  include_stats: boolean
   theme: 'light' | 'dark'
   format: '9:16' | '1:1' | '16:9'
 }

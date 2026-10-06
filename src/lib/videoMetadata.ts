@@ -174,3 +174,30 @@ export function largerThumbnailUrl(
 
   return undefined
 }
+
+export interface CropRect {
+  sx: number
+  sy: number
+  sw: number
+  sh: number
+}
+
+/**
+ * The centred square to take from a cover.
+ *
+ * Video thumbnails are 16:9 and album art is square, while the places that draw
+ * a cover square want a square. Drawing straight into a square box stretched the
+ * wide ones, so the source rectangle is worked out here and the picture is
+ * cropped instead.
+ */
+export function coverCrop(width: number, height: number): CropRect {
+  if (!(width > 0) || !(height > 0)) return { sx: 0, sy: 0, sw: 1, sh: 1 }
+
+  const side = Math.min(width, height)
+  return {
+    sx: (width - side) / 2,
+    sy: (height - side) / 2,
+    sw: side,
+    sh: side,
+  }
+}

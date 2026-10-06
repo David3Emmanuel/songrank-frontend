@@ -1,13 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Download, Share2, X, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Download, Loader2, Share2, Sliders, X } from 'lucide-react'
 import type { Track, SongRanking, ShareCardConfig } from '../lib/types'
-import {
-  generateShareCard,
-  downloadDataUrl,
-  shareDataUrl,
-} from '../lib/shareCard'
+import { downloadBlob, generateShareCard, shareImage } from '../lib/shareCard'
 
 interface ShareCardModalProps {
   rankings: SongRanking[]
@@ -16,245 +12,263 @@ interface ShareCardModalProps {
   onClose: () => void
 }
 
+/** Light and square by default, like the rest of the app. */
+const DEFAULT_CONFIG: ShareCardConfig = {
+  top_n: 3,
+  theme: 'light',
+  format: '1:1',
+}
+
 export default function ShareCardModal({
   rankings,
   tracks,
-  playlistName = 'My Playlist',
+  playlistName = 'My ranking',
   onClose,
 }: ShareCardModalProps) {
-  const [config, setConfig] = useState<ShareCardConfig>({
-    top_n: 3,
-    include_stats: true,
-    theme: 'dark',
-    format: '9:16',
-  })
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [config, setConfig] = useState<ShareCardConfig>(DEFAULT_CONFIG)
+  const [showOptions, setShowOptions] = useState(false)
+  const [card, setCard] = useState<Blob | null>(null)
+  const [isGenerating, setIsGenerating] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState<'shared' | 'saved' | null>(null)
+  /** The first card is drawn at once; later changes wait for a pause. */
+  const drawnOnce = useRef(false)
 
-  const handleGenerate = async () => {
-    setIsGenerating(true)
-    setError(null)
-    try {
-      const topTracks = rankings
+  const topTracks = useMemo(
+    () =>
+      rankings
         .slice(0, config.top_n)
         .map((ranking) => {
           const track = tracks.find((t) => t.id === ranking.Song)
           return { ranking, track: track! }
         })
-        .filter((item) => item.track)
+        .filter((item) => item.track),
+    [rankings, tracks, config.top_n],
+  )
 
-      const dataUrl = await generateShareCard(topTracks, config, playlistName)
-      setPreviewUrl(dataUrl)
-    } catch (err) {
-      console.error('Failed to generate share card:', err)
-      setError('Failed to generate image. Please try again.')
-    } finally {
-      setIsGenerating(false)
+  // An object URL for whatever card is current, released when it is replaced.
+  const previewUrl = useMemo(
+    () => (card ? URL.createObjectURL(card) : null),
+    [card],
+  )
+  useEffect(() => {
+    if (!previewUrl) return
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  // Changing an option redraws the card, so the loading state is raised here
+  // rather than inside the effect that does the drawing.
+  const updateConfig = (patch: Partial<ShareCardConfig>) => {
+    setIsGenerating(true)
+    setError(null)
+    setConfig((current) => ({ ...current, ...patch }))
+  }
+
+  // The card draws itself as soon as the modal opens, and again whenever an
+  // option changes, so there is never a Generate button to press first. Only the
+  // first draw is immediate: later changes wait briefly, so clicking through the
+  // options a few times redraws once instead of once per click.
+  useEffect(() => {
+    let cancelled = false
+    const delay = drawnOnce.current ? 200 : 0
+
+    const timer = setTimeout(() => {
+      drawnOnce.current = true
+
+      generateShareCard(topTracks, config, playlistName)
+        .then((blob) => {
+          if (!cancelled) setCard(blob)
+        })
+        .catch((err) => {
+          console.error('Failed to generate share card:', err)
+          if (!cancelled) {
+            setError('Could not draw the card. Try another shape.')
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setIsGenerating(false)
+        })
+    }, delay)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
+  }, [topTracks, playlistName, config])
+
+  // A short confirmation, then back to normal.
+  useEffect(() => {
+    if (!done) return
+    const timer = setTimeout(() => setDone(null), 2000)
+    return () => clearTimeout(timer)
+  }, [done])
+
+  const canShare =
+    typeof navigator !== 'undefined' &&
+    Boolean(navigator.share) &&
+    Boolean(navigator.canShare)
+
+  const save = () => {
+    if (!card) return
+    downloadBlob(card, `songrank-top-${config.top_n}.png`)
+    setDone('saved')
   }
 
-  const handleDownload = () => {
-    if (!previewUrl) return
-    downloadDataUrl(previewUrl, `songrank-top-${config.top_n}.png`)
-  }
-
-  const handleShare = async () => {
-    if (!previewUrl) return
-    const shared = await shareDataUrl(
-      previewUrl,
-      `My Top ${config.top_n} Songs`,
-      `Check out my top ${config.top_n} songs from ${playlistName}!`,
+  const share = async () => {
+    if (!card) return
+    const outcome = await shareImage(
+      card,
+      `My top ${config.top_n} songs`,
+      `My top ${config.top_n} from ${playlistName}`,
     )
-    if (!shared) {
-      // Fallback to download if share not supported
-      handleDownload()
-    }
+    // A dismissed share sheet is not a failure, and must not save anything.
+    if (outcome === 'shared') setDone('shared')
+    if (outcome === 'unsupported') save()
   }
 
   return (
-    <div className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto'>
-      <div className='bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full border border-slate-200 shadow-xl my-8'>
-        {/* Header */}
-        <div className='flex items-center justify-between mb-6'>
-          <div>
-            <h2 className='text-xl font-bold text-slate-900'>Share your rankings</h2>
-            {playlistName && (
-              <p className='text-slate-500 text-sm mt-0.5'>{playlistName}</p>
-            )}
+    <div
+      className='fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/30 p-4 backdrop-blur-sm'
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className='my-8 w-full max-w-md rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur-md'>
+        <div className='mb-4 flex items-start justify-between gap-3'>
+          <div className='min-w-0'>
+            <h2 className='text-lg font-bold text-slate-900'>
+              Share your ranking
+            </h2>
+            <p className='truncate text-sm text-slate-500'>{playlistName}</p>
           </div>
           <button
             onClick={onClose}
-            className='w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors'
+            className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 transition-colors hover:bg-slate-200'
             aria-label='Close'
           >
-            <X size={20} className='text-slate-600' />
+            <X size={18} className='text-slate-600' />
           </button>
         </div>
 
-        {/* Configuration */}
-        <div className='space-y-4 mb-6'>
-          {/* Top N */}
-          <div>
-            <label className='block text-slate-600 text-sm font-medium mb-2'>
-              Number of Songs
-            </label>
-            <div className='flex gap-2'>
-              {[3, 5, 10].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setConfig({ ...config, top_n: n })}
-                  className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    config.top_n === n
-                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Top {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Format */}
-          <div>
-            <label className='block text-slate-600 text-sm font-medium mb-2'>
-              Format
-            </label>
-            <div className='flex gap-2'>
-              {[
-                { value: '9:16', label: 'Story (9:16)' },
-                { value: '1:1', label: 'Square (1:1)' },
-                { value: '16:9', label: 'Wide (16:9)' },
-              ].map((format) => (
-                <button
-                  key={format.value}
-                  onClick={() =>
-                    setConfig({
-                      ...config,
-                      format: format.value as ShareCardConfig['format'],
-                    })
-                  }
-                  className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    config.format === format.value
-                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {format.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Theme */}
-          <div>
-            <label className='block text-slate-600 text-sm font-medium mb-2'>
-              Theme
-            </label>
-            <div className='flex gap-2'>
-              {[
-                { value: 'dark', label: 'Dark' },
-                { value: 'light', label: 'Light' },
-              ].map((theme) => (
-                <button
-                  key={theme.value}
-                  onClick={() =>
-                    setConfig({
-                      ...config,
-                      theme: theme.value as 'dark' | 'light',
-                    })
-                  }
-                  className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    config.theme === theme.value
-                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {theme.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Include Stats */}
-          <div className='flex items-center gap-3'>
-            <input
-              type='checkbox'
-              id='include-stats'
-              checked={config.include_stats}
-              onChange={(e) =>
-                setConfig({ ...config, include_stats: e.target.checked })
-              }
-              className='w-5 h-5 rounded border-slate-300 bg-white checked:bg-emerald-600'
-            />
-            <label htmlFor='include-stats' className='text-slate-600'>
-              Include ranking scores
-            </label>
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className='bg-rose-50 border border-rose-200 rounded-lg p-3 mt-4'>
-            <p className='text-sm text-rose-700'>{error}</p>
-          </div>
-        )}
-
-        {/* Generate Button */}
-        {!previewUrl && (
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className='w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 size={20} className='animate-spin' />
-                Generating...
-              </>
-            ) : (
-              <>Generate Card</>
-            )}
-          </button>
-        )}
-
-        {/* Preview */}
-        {previewUrl && (
-          <div className='space-y-4'>
-            <div className='bg-slate-50 border border-slate-200 rounded-lg p-4 max-h-96 overflow-auto'>
+        {/* The card itself, drawn before anything is asked of the user */}
+        <div className='flex justify-center rounded-xl border border-slate-200 bg-slate-50 p-3'>
+          <div className='relative flex max-h-[52vh] min-h-52 items-center justify-center overflow-hidden'>
+            {previewUrl ? (
               <img
                 src={previewUrl}
                 alt='Share card preview'
-                className='w-full h-auto rounded-lg'
+                className={`max-h-[50vh] w-auto rounded-lg transition-opacity ${
+                  isGenerating ? 'opacity-50' : 'opacity-100'
+                }`}
               />
-            </div>
+            ) : (
+              <Loader2 size={24} className='animate-spin text-slate-400' />
+            )}
+          </div>
+        </div>
 
-            {/* Action Buttons */}
-            <div className='flex gap-3'>
-              <button
-                onClick={handleDownload}
-                className='flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors'
-              >
-                <Download size={20} />
-                Download
-              </button>
-              <button
-                onClick={handleShare}
-                className='flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors'
-              >
-                <Share2 size={20} />
-                Share
-              </button>
-            </div>
+        {error && <p className='mt-3 text-sm text-rose-700'>{error}</p>}
 
-            {/* Regenerate */}
+        {/* Actions first, options second */}
+        <div className='mt-4 flex gap-3'>
+          {canShare && (
             <button
-              onClick={() => { setPreviewUrl(null); setError(null) }}
-              className='w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg transition-colors'
+              onClick={share}
+              disabled={!card || isGenerating}
+              className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-900 py-3 font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-40'
             >
-              Change Settings
+              {done === 'shared' ? <Check size={20} /> : <Share2 size={20} />}
+              {done === 'shared' ? 'Shared' : 'Share'}
             </button>
+          )}
+          <button
+            onClick={save}
+            disabled={!card || isGenerating}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 font-semibold transition-colors disabled:opacity-40 ${
+              canShare
+                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-slate-900 text-white hover:bg-slate-800'
+            }`}
+          >
+            {done === 'saved' ? <Check size={20} /> : <Download size={20} />}
+            {done === 'saved' ? 'Saved' : 'Save image'}
+          </button>
+        </div>
+
+        <button
+          onClick={() => setShowOptions((value) => !value)}
+          className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700'
+        >
+          <Sliders size={16} />
+          {showOptions ? 'Hide options' : 'Customise'}
+        </button>
+
+        {showOptions && (
+          <div className='mt-2 space-y-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4'>
+            <div>
+              <p className='mb-2 text-sm font-medium text-slate-600'>Songs</p>
+              <div className='flex gap-2'>
+                {[3, 5, 10].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => updateConfig({ top_n: n })}
+                    className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                      config.top_n === n
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Top {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className='mb-2 text-sm font-medium text-slate-600'>Shape</p>
+              <div className='flex gap-2'>
+                {[
+                  { value: '1:1', label: 'Square' },
+                  { value: '9:16', label: 'Story' },
+                  { value: '16:9', label: 'Wide' },
+                ].map((format) => (
+                  <button
+                    key={format.value}
+                    onClick={() =>
+                      updateConfig({
+                        format: format.value as ShareCardConfig['format'],
+                      })
+                    }
+                    className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                      config.format === format.value
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {format.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm font-medium text-slate-600'>Style</span>
+              <div className='flex gap-2'>
+                {(['light', 'dark'] as const).map((theme) => (
+                  <button
+                    key={theme}
+                    onClick={() => updateConfig({ theme })}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+                      config.theme === theme
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {theme}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
