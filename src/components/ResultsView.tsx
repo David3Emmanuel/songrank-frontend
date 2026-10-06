@@ -88,50 +88,57 @@ export default function ResultsView() {
           </button>
         </div>
 
-        {/* Podium for the top three. Second and third flank the winner, and a
-            place nobody reached stays as an empty pedestal. Deliberately not
-            tinted by score: the place colours are enough here, and the tint
-            belongs on the list rows. */}
+        {/* Podium for the top three. Second and third flank the winner, and the
+            cover sits inside each block so the winner's block shows the biggest
+            artwork. A place nobody reached stays as an empty block. */}
         <div className='mb-8 flex items-end justify-center gap-3'>
           {[2, 1, 3].map((place) => {
             const item = rankedTracks[place - 1]
             const track = item?.track
-            const pedestal = place === 1 ? 108 : place === 2 ? 80 : 60
+            const pedestal = place === 1 ? 120 : place === 2 ? 96 : 72
+            const cover = place === 1 ? 72 : place === 2 ? 56 : 44
 
             return (
               <div key={place} className='flex w-32 flex-col items-center'>
-                {track ? (
-                  <>
-                    <div
-                      className={`mb-2 overflow-hidden rounded-xl bg-slate-100 shadow-sm ${
-                        place === 1 ? 'h-20 w-20' : 'h-16 w-16'
-                      }`}
-                    >
-                      <TrackArtwork src={track.coverImage} alt={track.title} />
-                    </div>
-                    <p className='w-full truncate text-center text-sm font-semibold'>
-                      {track.title}
-                    </p>
-                    <p className='mb-2 w-full truncate text-center text-xs text-slate-500'>
-                      {track.artist}
-                    </p>
-                  </>
-                ) : (
-                  <div className='mb-2 h-16 w-16 rounded-xl border border-dashed border-slate-200' />
-                )}
-
                 <div
-                  className={`flex w-full items-start justify-center rounded-t-xl pt-1.5 text-xl font-black ${
+                  className={`relative flex w-full items-center justify-center rounded-t-xl border border-b-0 border-slate-200/80 ${
                     place === 1
-                      ? 'bg-amber-100 text-amber-700'
+                      ? 'bg-amber-100'
                       : place === 2
-                        ? 'bg-slate-200 text-slate-600'
-                        : 'bg-orange-100 text-orange-700'
+                        ? 'bg-slate-200'
+                        : 'bg-orange-100'
                   }`}
                   style={{ height: pedestal }}
                 >
-                  {place}
+                  <span className='absolute top-2 left-2 rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-slate-700'>
+                    {place}
+                  </span>
+
+                  {track ? (
+                    <div
+                      className='overflow-hidden rounded-lg bg-white shadow-sm'
+                      style={{ width: cover, height: cover }}
+                    >
+                      <TrackArtwork src={track.coverImage} alt={track.title} />
+                    </div>
+                  ) : (
+                    <div
+                      className='rounded-lg border border-dashed border-slate-300'
+                      style={{ width: cover, height: cover }}
+                    />
+                  )}
                 </div>
+
+                {track && (
+                  <>
+                    <p className='mt-2 w-full truncate text-center text-sm font-semibold'>
+                      {track.title}
+                    </p>
+                    <p className='w-full truncate text-center text-xs text-slate-500'>
+                      {track.artist}
+                    </p>
+                  </>
+                )}
               </div>
             )
           })}
