@@ -245,17 +245,17 @@ export default function SwipeComparison({
         <div className='flex justify-center gap-1 mt-2'>
           <div
             className={`w-2 h-2 rounded-full ${
-              zone === 'neutral' ? 'bg-slate-900' : 'bg-slate-200'
+              zone === 'neutral' ? 'bg-slate-400' : 'bg-slate-200'
             }`}
           />
           <div
             className={`w-2 h-2 rounded-full ${
-              zone.includes('weak') ? 'bg-slate-900' : 'bg-slate-200'
+              zone.includes('weak') ? 'bg-amber-400' : 'bg-slate-200'
             }`}
           />
           <div
             className={`w-2 h-2 rounded-full ${
-              zone.includes('strong') ? 'bg-slate-900' : 'bg-slate-200'
+              zone.includes('strong') ? 'bg-emerald-500' : 'bg-slate-200'
             }`}
           />
         </div>
@@ -293,9 +293,15 @@ export default function SwipeComparison({
         {lastVote ? (
           // SUCCESS STATE
           <div className='z-50 flex flex-col items-center animate-bounce'>
-            <div className='w-32 h-32 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20'>
+            <div
+              className={`w-32 h-32 rounded-full border flex items-center justify-center shadow-sm ${
+                lastVote === 'Tie'
+                  ? 'bg-slate-100 border-slate-200'
+                  : 'bg-rose-50 border-rose-200'
+              }`}
+            >
               {lastVote === 'Tie' ? (
-                <Minus size={48} />
+                <Minus size={48} className='text-slate-500' />
               ) : (
                 <Heart size={48} className='fill-current text-rose-600' />
               )}
@@ -327,9 +333,9 @@ export default function SwipeComparison({
             <div
               className={`absolute inset-0 rounded-full border-4 transition-all duration-200 ${
                 zone.includes('strong')
-                  ? 'border-slate-900 opacity-100 scale-110'
+                  ? 'border-emerald-500 opacity-100 scale-110'
                   : zone.includes('weak')
-                    ? 'border-slate-300 opacity-100'
+                    ? 'border-amber-400 opacity-100'
                     : 'border-transparent opacity-0'
               }`}
             />

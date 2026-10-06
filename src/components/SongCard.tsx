@@ -111,7 +111,7 @@ export default function SongCard({
       >
         {/* Eclipse Flash Effect */}
         {isStrong && (
-          <div className='absolute inset-0 bg-slate-900/10 animate-pulse' />
+          <div className='absolute inset-0 bg-slate-200/60 animate-pulse' />
         )}
 
         <TrackArtwork
@@ -154,7 +154,7 @@ export default function SongCard({
             Array.from({ length: numberOfBars }).map((_, i) => (
               <div
                 key={i}
-                className='w-1 bg-slate-900/50 rounded-full transition-all duration-100'
+                className='w-1 bg-slate-400/60 rounded-full transition-all duration-100'
                 style={{ height: `${volume * 100 * Math.random()}%` }}
               />
             ))}
