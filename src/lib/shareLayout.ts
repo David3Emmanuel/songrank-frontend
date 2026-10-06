@@ -2,16 +2,18 @@
  * The geometry of a share card, worked out from the shape and how many songs it
  * has to show.
  *
- * Everything is derived from the height, and the two blocks share the space: the
- * rows take a preferred height and the podium cover absorbs what is left, so a
- * three song card gets a large podium rather than a small one stranded under the
- * header.
+ * Three arrangements, chosen by shape and length:
+ *
+ * - One column: the podium, then the rows beneath it. Every square and portrait
+ *   card, and a wide card showing only a top three.
+ * - A stacked podium: a top three on a tall card, where three squares across a
+ *   1080 wide canvas reach a third of the width each and leave the height empty.
+ * - Two panes: a wide card that has rows. The podium takes the left pane and the
+ *   rows the right, which is what the wide shape is for.
  *
  * Caption positions come from the font sizes rather than from fractions of a
- * block. Spacing three lines by eye had them crowding each other, and the
- * footer's reserve counted its baseline but not the text above it, which put
- * "SongRank" on top of the last row. Both are now impossible by construction, and
- * both are asserted in the tests.
+ * block, and the footer's reserve counts the text above its baseline, so neither
+ * can collide with the rows.
  */
 
 import type { ShareCardConfig } from './types'
@@ -86,12 +88,21 @@ export interface CardLayout {
   footerFont: number
   /** Content must end above this, or it collides with the footer text. */
   contentBottomLimit: number
+  /** Podium left of the rows, on a wide card that has any. */
+  sideBySide: boolean
+  paneGap: number
   /** A top three on a tall card stacks, since three squares across cannot fill it. */
   podiumStacked: boolean
-  /** Top of the winner's cover, after the content is centred. */
+  /** Where the podium is centred: the left pane when the panes sit side by side. */
+  podiumCentreX: number
+  /** How much width the podium may use, for checking it fits. */
+  podiumPaneWidth: number
+  /** Top of the winner's cover. */
   podiumTop: number
   /** The winner's cover. */
   podiumCover: number
+  /** Covers plus captions, so the pane can be centred on its own. */
+  podiumBlockHeight: number
   /** The second and third covers. */
   runnerCover: number
   /** Top of the second and third covers, on a stacked podium only. */
@@ -99,7 +110,10 @@ export interface CardLayout {
   podiumColumnGap: number
   podium: CaptionMetrics
   runner: CaptionMetrics
-  /** Top of the first row past the podium. */
+  /** Left edge and width of the rows. */
+  rowsPaneX: number
+  rowsPaneWidth: number
+  /** Top of the first row. */
   rowsTop: number
   rowHeight: number
   rowArt: number
@@ -109,14 +123,9 @@ export interface CardLayout {
   rowBadgeRadius: number
   /** Songs past the podium, so 0 for a card of three. */
   rowCount: number
-  /** 2 on a wide card, where the rows sit in two panes. */
-  rowColumns: number
-  /** Rows in the fullest pane, which is what the height is measured on. */
-  rowsPerColumn: number
-  rowPaneGap: number
-  rowPaneWidth: number
   /**
-   * Whether the rows sit on one shared panel instead of a box each.
+   * Whether the rows sit on one shared panel instead of a box each, and put the
+   * artist to the right of the title.
    *
    * Only worth it on the densest card: flush rows with their own borders draw
    * two lines against each other, which reads as cramped. Derived from the
@@ -132,6 +141,7 @@ export function cardLayout(
 ): CardLayout {
   const { width, height } = CARD_DIMENSIONS[format]
   const tall = format === '9:16'
+  const wide = format === '16:9'
   const at = (fraction: number) => Math.round(height * fraction)
 
   const headerFont = tall ? 66 : 56
@@ -150,118 +160,132 @@ export function cardLayout(
   const podiumCaption = tall ? caption(42, 32, 27) : caption(30, 24, 20)
   const runnerCaption = tall ? caption(36, 28, 24) : caption(26, 21, 18)
 
-  // The space between the header and the footer, shared by the podium and rows.
   const region = contentBottomLimit - podiumTopBase
 
-  const wide = format === '16:9'
   const rowCount = Math.max(0, songCount - 3)
   const minRow = at(MIN_ROW_FRACTION)
   const preferredRow = at(PREFERRED_ROW_FRACTION)
   const leadIn = rowCount > 0 ? at(0.02) : 0
 
-  // A wide card lays the rows out in two panes: seven rows in one column of a
-  // 1080 tall canvas is a cramped strip, where two panes of four have room.
-  const rowColumns = wide && rowCount > 0 ? 2 : 1
-  const rowsPerColumn = rowColumns > 0 ? Math.ceil(rowCount / rowColumns) : 0
-  const rowPaneGap = rowColumns === 2 ? at(0.03) : 0
-  const rowPaneWidth =
-    (width - marginX * 2 - rowPaneGap * (rowColumns - 1)) / rowColumns
-
-  /** The space between rows, dropped when a card gets dense. */
-  let rowGap = at(0.012)
+  // A wide card with a top ten gives the podium the left pane and the rows the
+  // right. A shorter list does not need it: two or four rows under a full width
+  // podium read fine, and the panes would only make both halves sparse.
+  const sideBySide = wide && songCount >= 10
+  const paneGap = sideBySide ? at(0.03) : 0
+  const paneWidth = sideBySide
+    ? (width - marginX * 2 - paneGap) / 2
+    : width - marginX * 2
 
   // A top three on a tall card stacks instead: three squares across a 1080 wide
-  // story only reach about a third of the width each, which leaves most of the
-  // height empty. Anything with rows keeps the podium across, because the rows
-  // need the height more.
+  // story reach about a third of the width each, which leaves the height empty.
   const stacked = tall && rowCount === 0
 
   // Across, the cover is bounded by the width as well as the height, because the
   // podium is three covers side by side.
   const acrossWidth = 1 + RUNNER_COVER_RATIO * 2
   const widthCap = stacked
-    ? width - marginX * 2
-    : (width - marginX * 2 - podiumColumnGap * 2) / acrossWidth
+    ? paneWidth
+    : (paneWidth - podiumColumnGap * 2) / acrossWidth
   const minCover = Math.min(at(MIN_COVER_FRACTION), widthCap)
   const maxCover = Math.min(at(MAX_COVER_FRACTION), widthCap)
 
   const clamp = (value: number, low: number, high: number) =>
     Math.max(low, Math.min(high, value))
 
-  const preferredRows =
-    rowsPerColumn > 0
-      ? rowsPerColumn * preferredRow + (rowsPerColumn - 1) * rowGap
-      : 0
-
-  // The podium takes the slack, within bounds.
-  let podiumCover = clamp(
-    region - preferredRows - leadIn - podiumCaption.block,
-    minCover,
-    maxCover,
-  )
-
   const heightPerRow = (cover: number, gap: number) => {
-    if (rowsPerColumn === 0) return 0
+    if (rowCount === 0) return 0
     const space = region - cover - leadIn - podiumCaption.block
-    return Math.floor((space - (rowsPerColumn - 1) * gap) / rowsPerColumn)
+    return Math.floor((space - (rowCount - 1) * gap) / rowCount)
   }
 
-  let rowHeight = heightPerRow(podiumCover, rowGap)
+  let rowGap = at(0.012)
+  let podiumCover: number
+  let rowHeight: number
+  let podiumBlock: number
+  let podiumTop: number
+  let rowsTop: number
 
-  // Spacing is the first thing to go on a dense card. Rows carry borders, so
-  // touching ones still read as separate, whereas a row at the legibility floor
-  // does not get better by keeping the space between them.
-  if (rowsPerColumn > 0 && rowHeight <= minRow) {
-    rowGap = 0
-    rowHeight = heightPerRow(podiumCover, rowGap)
-  }
+  if (sideBySide) {
+    // Two panes, each centred in the region and measured on its own.
+    rowHeight = Math.min(
+      preferredRow,
+      Math.floor((region - (rowCount - 1) * rowGap) / rowCount),
+    )
+    if (rowHeight <= minRow) {
+      rowGap = 0
+      rowHeight = Math.min(preferredRow, Math.floor(region / rowCount))
+    }
 
-  // Still too tight, so the rows take their space back from the podium.
-  if (rowsPerColumn > 0 && rowHeight < minRow) {
+    podiumCover = clamp(region - podiumCaption.block, minCover, maxCover)
+    podiumBlock = podiumCover + podiumCaption.block
+
+    const rowsBlock = rowCount * rowHeight + (rowCount - 1) * rowGap
+    podiumTop = podiumTopBase + Math.max(0, Math.floor((region - podiumBlock) / 2))
+    rowsTop = podiumTopBase + Math.max(0, Math.floor((region - rowsBlock) / 2))
+  } else {
+    // One column: the podium takes the slack, the rows take what is left, and
+    // the pair is centred together.
+    const preferredRows =
+      rowCount > 0 ? rowCount * preferredRow + (rowCount - 1) * rowGap : 0
+
     podiumCover = clamp(
-      region -
-        (rowsPerColumn * minRow + (rowsPerColumn - 1) * rowGap) -
-        leadIn -
-        podiumCaption.block,
-      Math.min(at(HARD_MIN_COVER_FRACTION), widthCap),
+      region - preferredRows - leadIn - podiumCaption.block,
+      minCover,
       maxCover,
     )
     rowHeight = heightPerRow(podiumCover, rowGap)
+
+    // Spacing is the first thing to go on a dense card. Rows carry borders, so
+    // touching ones still read as separate, whereas a row at the legibility floor
+    // does not get better by keeping the space between them.
+    if (rowCount > 0 && rowHeight <= minRow) {
+      rowGap = 0
+      rowHeight = heightPerRow(podiumCover, rowGap)
+    }
+
+    // Still too tight, so the rows take their space back from the podium.
+    if (rowCount > 0 && rowHeight < minRow) {
+      podiumCover = clamp(
+        region -
+          (rowCount * minRow + (rowCount - 1) * rowGap) -
+          leadIn -
+          podiumCaption.block,
+        Math.min(at(HARD_MIN_COVER_FRACTION), widthCap),
+        maxCover,
+      )
+      rowHeight = heightPerRow(podiumCover, rowGap)
+    }
+
+    // And rows that came out too generous keep to a sensible height, leaving the
+    // rest as even margin rather than a row the size of a postcard.
+    if (rowHeight > preferredRow) rowHeight = preferredRow
+
+    // A stacked podium has two cover blocks and two caption blocks to fit.
+    if (stacked) {
+      const fits =
+        (region - podiumCaption.block - runnerCaption.block) /
+        (1 + STACKED_RUNNER_RATIO)
+      podiumCover = Math.max(minCover, Math.min(widthCap, Math.floor(fits)))
+    }
+
+    podiumBlock = stacked
+      ? podiumCover +
+        podiumCaption.block +
+        Math.round(podiumCover * STACKED_RUNNER_RATIO) +
+        runnerCaption.block
+      : podiumCover + podiumCaption.block
+
+    const contentHeight =
+      podiumBlock +
+      leadIn +
+      (rowCount > 0 ? rowCount * rowHeight + (rowCount - 1) * rowGap : 0)
+    podiumTop = podiumTopBase + Math.max(0, Math.floor((region - contentHeight) / 2))
+    rowsTop = podiumTop + podiumBlock + leadIn
   }
 
-  // And rows that came out too generous keep to a sensible height, leaving the
-  // rest as even margin rather than a row the size of a postcard.
-  if (rowHeight > preferredRow) rowHeight = preferredRow
-
-  // A stacked podium has two cover blocks and two caption blocks to fit.
-  let runnerCover = Math.round(podiumCover * RUNNER_COVER_RATIO)
-  if (stacked) {
-    const fits =
-      (region - podiumCaption.block - runnerCaption.block) /
-      (1 + STACKED_RUNNER_RATIO)
-    podiumCover = Math.max(minCover, Math.min(widthCap, Math.floor(fits)))
-    runnerCover = Math.round(podiumCover * STACKED_RUNNER_RATIO)
-  }
-
-  const podiumBlock = stacked
-    ? podiumCover + podiumCaption.block + runnerCover + runnerCaption.block
-    : podiumCover + podiumCaption.block
-
-  // Leftover space is split above and below, so the card is filled rather than
-  // pinned under the header.
-  const contentHeight =
-    podiumBlock +
-    leadIn +
-    (rowsPerColumn > 0
-      ? rowsPerColumn * rowHeight + (rowsPerColumn - 1) * rowGap
-      : 0)
-  const slack = Math.max(0, region - contentHeight)
-  const podiumTop = podiumTopBase + Math.floor(slack / 2)
-
-  // A box each is fine until the rows are flush and there are a lot of them,
-  // which is the square top ten: there the borders are what makes it feel tight.
-  const rowsSharePanel = rowGap === 0 && rowsPerColumn >= 6
-
+  const runnerCover = Math.round(
+    podiumCover * (stacked ? STACKED_RUNNER_RATIO : RUNNER_COVER_RATIO),
+  )
   const podiumRunnerTop = podiumTop + podiumCover + podiumCaption.block
   const rowArt = rowHeight > 0 ? Math.max(24, rowHeight - (tall ? 40 : 22)) : 0
 
@@ -277,15 +301,22 @@ export function cardLayout(
     footerY,
     footerFont,
     contentBottomLimit,
+    sideBySide,
+    paneGap,
     podiumStacked: stacked,
+    podiumCentreX: sideBySide ? marginX + paneWidth / 2 : width / 2,
+    podiumPaneWidth: paneWidth,
     podiumTop,
     podiumCover,
+    podiumBlockHeight: podiumBlock,
     runnerCover,
     podiumRunnerTop,
     podiumColumnGap,
     podium: podiumCaption,
     runner: runnerCaption,
-    rowsTop: podiumTop + podiumBlock + leadIn,
+    rowsPaneX: sideBySide ? marginX + paneWidth + paneGap : marginX,
+    rowsPaneWidth: paneWidth,
+    rowsTop,
     rowHeight,
     rowArt,
     rowGap,
@@ -293,32 +324,31 @@ export function cardLayout(
     rowSubFont: Math.min(26, Math.max(15, Math.round(rowHeight * 0.32))),
     rowBadgeRadius: Math.min(26, Math.max(16, Math.round(rowHeight * 0.36))),
     rowCount,
-    rowColumns,
-    rowsPerColumn,
-    rowPaneGap,
-    rowPaneWidth,
-    rowsSharePanel,
+    rowsSharePanel: !sideBySide && rowGap === 0 && rowCount >= 6,
   }
 }
 
-/** The bottom edge of the last thing drawn, for checking nothing runs off. */
+/** The height the rows take up, for checking the pane is centred. */
+export function rowsBlockHeight(layout: CardLayout): number {
+  if (layout.rowCount === 0) return 0
+  return (
+    layout.rowCount * layout.rowHeight + (layout.rowCount - 1) * layout.rowGap
+  )
+}
+
+/** The bottom edge of the lowest thing drawn, for checking nothing runs off. */
 export function layoutBottom(layout: CardLayout): number {
-  if (layout.rowCount > 0) {
-    return (
-      layout.rowsTop +
-      layout.rowsPerColumn * layout.rowHeight +
-      (layout.rowsPerColumn - 1) * layout.rowGap
-    )
-  }
+  const rowsBottom =
+    layout.rowCount > 0 ? layout.rowsTop + rowsBlockHeight(layout) : 0
 
-  if (layout.podiumStacked) {
-    return layout.podiumRunnerTop + layout.runnerCover + layout.runner.block
-  }
+  const podiumBottom = layout.podiumStacked
+    ? layout.podiumRunnerTop + layout.runnerCover + layout.runner.block
+    : layout.podiumTop + layout.podiumBlockHeight
 
-  return layout.podiumTop + layout.podiumCover + layout.podium.block
+  return Math.max(rowsBottom, podiumBottom)
 }
 
-/** The full width the podium covers take up, for checking it fits across. */
+/** The full width the podium covers take up, for checking it fits its pane. */
 export function podiumWidth(layout: CardLayout): number {
   if (layout.podiumStacked) {
     return Math.max(

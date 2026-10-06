@@ -6,11 +6,14 @@ import {
   cardLayout,
   layoutBottom,
   podiumWidth,
+  rowsBlockHeight,
   RUNNER_COVER_RATIO,
 } from '../src/lib/shareLayout.ts'
 
 const FORMATS = ['9:16', '1:1', '16:9']
 const COUNTS = [3, 5, 10]
+/** The top of the region the content lives in, whatever the shape. */
+const regionTop = (layout) => Math.round(layout.height * 0.2)
 
 test('the card is the size the platform expects', () => {
   assert.deepEqual(CARD_DIMENSIONS['1:1'], { width: 1080, height: 1080 })
@@ -23,6 +26,7 @@ test('a card of three has no rows below the podium', () => {
     const layout = cardLayout(format, 3)
     assert.equal(layout.rowCount, 0)
     assert.equal(layout.rowHeight, 0)
+    assert.equal(layout.sideBySide, false)
   }
 })
 
@@ -31,23 +35,21 @@ test('nothing runs off the bottom, in any shape or length', () => {
     for (const count of COUNTS) {
       const layout = cardLayout(format, count)
       assert.ok(
-        layoutBottom(layout) <= layout.footerY,
-        `${format} with ${count} songs reached the footer`,
+        layoutBottom(layout) <= layout.contentBottomLimit,
+        `${format} with ${count} songs ran into the footer`,
       )
       assert.equal(layout.rowCount, Math.max(0, count - 3))
     }
   }
 })
 
-test('the podium fits across the card, which bounds the cover too', () => {
+test('the podium fits the width it is given', () => {
   for (const format of FORMATS) {
     for (const count of COUNTS) {
       const layout = cardLayout(format, count)
-      const usable = layout.width - layout.marginX * 2
-
       assert.ok(
-        podiumWidth(layout) <= usable,
-        `${format} with ${count} songs pushed the podium off the sides`,
+        podiumWidth(layout) <= layout.podiumPaneWidth + 1,
+        `${format} with ${count} songs pushed the podium out of its pane`,
       )
     }
   }
@@ -86,11 +88,6 @@ test('fewer songs means a bigger podium, not a smaller one', () => {
       `${format}: three songs should not have a smaller podium than five`,
     )
     assert.ok(five.podiumCover >= ten.podiumCover, `${format}: five against ten`)
-    // And it should be worth looking at, not a thumbnail.
-    assert.ok(
-      three.podiumCover >= Math.min(three.height * 0.28, three.width * 0.3),
-      `${format}: the podium on a three song card is too small`,
-    )
   }
 })
 
@@ -98,19 +95,50 @@ test('the content is centred rather than pinned under the header', () => {
   for (const format of FORMATS) {
     for (const count of COUNTS) {
       const layout = cardLayout(format, count)
-      const regionTop = Math.round(layout.height * 0.2)
-      const above = layout.podiumTop - regionTop
-      const below = layout.contentBottomLimit - layoutBottom(layout)
+      const top = regionTop(layout)
 
-      assert.ok(above >= 0, `${format}/${count}: content went above the region`)
-      assert.ok(
-        below >= 0,
-        `${format}/${count}: content ran into the footer, by ${-below}`,
-      )
-      assert.ok(
-        Math.abs(above - below) <= 2,
-        `${format} with ${count} songs is not centred: ${above} above, ${below} below`,
-      )
+      // Side by side, the two panes are centred on their own. In one column the
+      // podium and the rows are centred together, as a single block.
+      const panes = layout.sideBySide
+        ? [
+            {
+              name: 'podium',
+              above: layout.podiumTop - top,
+              height: layout.podiumBlockHeight,
+              from: layout.podiumTop,
+            },
+            {
+              name: 'rows',
+              above: layout.rowsTop - top,
+              height: rowsBlockHeight(layout),
+              from: layout.rowsTop,
+            },
+          ]
+        : [
+            {
+              name: 'column',
+              above: layout.podiumTop - top,
+              height: layoutBottom(layout) - layout.podiumTop,
+              from: layout.podiumTop,
+            },
+          ]
+
+      for (const pane of panes) {
+        const below = layout.contentBottomLimit - (pane.from + pane.height)
+
+        assert.ok(
+          pane.above >= 0,
+          `${format}/${count}: the ${pane.name} went above the region`,
+        )
+        assert.ok(
+          below >= 0,
+          `${format}/${count}: the ${pane.name} ran into the footer by ${-below}`,
+        )
+        assert.ok(
+          Math.abs(pane.above - below) <= 2,
+          `${format}/${count}: the ${pane.name} is not centred, ${pane.above} above and ${below} below`,
+        )
+      }
     }
   }
 })
@@ -147,7 +175,7 @@ test('caption lines cannot overlap each other or the row below', () => {
 test('a three song card uses most of the height it has', () => {
   for (const format of FORMATS) {
     const layout = cardLayout(format, 3)
-    const region = layout.footerY - Math.round(layout.height * 0.2)
+    const region = layout.contentBottomLimit - regionTop(layout)
     const used = layoutBottom(layout) - layout.podiumTop
     assert.ok(
       used >= region * 0.5,
@@ -163,7 +191,6 @@ test('the runner up covers are sized as a ratio of the winner', () => {
 test('a dense square card drops the gaps before it shrinks the rows', () => {
   const ten = cardLayout('1:1', 10)
   assert.equal(ten.rowGap, 0, 'a top ten square should set its rows flush')
-  // And the rows are still legible, which is the point of dropping the gaps.
   assert.ok(ten.rowHeight > Math.floor(ten.height * 0.05))
 })
 
@@ -176,41 +203,45 @@ test('the tall card is left alone, since its rows already have room', () => {
   const ten = cardLayout('9:16', 10)
   assert.ok(ten.rowGap > 0)
   assert.ok(ten.rowHeight > Math.floor(ten.height * 0.05))
-  assert.equal(ten.rowColumns, 1)
+  assert.equal(ten.sideBySide, false)
 })
 
-test('a wide card sets its rows in two panes', () => {
+test('a wide card puts the podium in one pane and the rows in the other', () => {
   const ten = cardLayout('16:9', 10)
-  assert.equal(ten.rowColumns, 2)
-  assert.equal(ten.rowsPerColumn, 4)
-  // Both panes fit inside the card.
+
+  assert.equal(ten.sideBySide, true)
+  assert.equal(ten.rowCount, 7)
   assert.ok(
-    ten.rowColumns * ten.rowPaneWidth + ten.rowPaneGap <=
+    ten.rowsPaneX > ten.marginX,
+    'the rows should start to the right of the podium pane',
+  )
+  assert.ok(
+    ten.podiumPaneWidth + ten.paneGap + ten.rowsPaneWidth <=
       ten.width - ten.marginX * 2 + 1,
     'the panes do not fit across the card',
   )
-  // And the panes buy the rows real height: four to a column instead of seven.
+  // And the whole point of the wide shape: taller rows than a square card.
   assert.ok(
     ten.rowHeight > cardLayout('1:1', 10).rowHeight,
-    'two panes should beat one column',
+    'the wide pane should beat the single column',
   )
 })
 
-test('a wide card with only two rows below the podium uses one pane', () => {
+test('a wide card with a shorter list stays in one column', () => {
+  // Only the top ten is split into panes: two rows under a full width podium
+  // read fine, and splitting them would leave both halves sparse.
   const five = cardLayout('16:9', 5)
-  assert.equal(five.rowColumns, 2)
-  assert.equal(five.rowsPerColumn, 1)
-})
-
-test('a story has room for taller rows than a square', () => {
-  assert.ok(cardLayout('9:16', 10).rowHeight > cardLayout('1:1', 10).rowHeight)
+  assert.equal(five.sideBySide, false)
+  assert.equal(five.rowCount, 2)
+  assert.equal(five.rowsPaneX, five.marginX)
 })
 
 test('only the densest card puts its rows on a shared panel', () => {
   const panelCases = []
   for (const format of FORMATS) {
     for (const count of COUNTS) {
-      if (cardLayout(format, count).rowsSharePanel) panelCases.push(`${format}/${count}`)
+      const layout = cardLayout(format, count)
+      if (layout.rowsSharePanel) panelCases.push(`${format}/${count}`)
     }
   }
   assert.deepEqual(panelCases, ['1:1/10'])

@@ -164,11 +164,12 @@ export async function generateShareCard({
     rowTitleFont,
     rowSubFont,
     rowBadgeRadius,
-    rowColumns,
-    rowsPerColumn,
-    rowPaneGap,
-    rowPaneWidth,
+    rowCount,
+    rowsPaneX,
+    rowsPaneWidth,
     rowsSharePanel,
+    podiumCentreX,
+    podiumPaneWidth,
     podiumColumnGap,
     podiumRunnerTop,
   } = layout
@@ -249,23 +250,23 @@ export async function generateShareCard({
 
   if (columns.length > 0 && podiumStacked) {
     // Winner above, runners beneath.
-    const winnerX = (width - podiumCover) / 2
+    const winnerX = podiumCentreX - podiumCover / 2
     drawCover(ctx, covers[0] ?? null, winnerX, podiumTop, podiumCover, 22, colours.border)
-    badge(1, width / 2, podiumTop - (tall ? 18 : 14))
+    badge(1, podiumCentreX, podiumTop - (tall ? 18 : 14))
     caption(
       podium[0],
       podiumFonts,
-      width / 2,
+      podiumCentreX,
       podiumTop + podiumCover + podiumFonts.titleY,
       podiumTop + podiumCover + podiumFonts.artistY,
       podiumTop + podiumCover + podiumFonts.durationY,
-      width - marginX * 2,
+      podiumPaneWidth,
     )
 
     const runners = [2, 3].filter((place) => place <= podium.length)
     const runnerTotal =
       runners.length * runnerCover + Math.max(0, runners.length - 1) * podiumColumnGap
-    let x = (width - runnerTotal) / 2
+    let x = podiumCentreX - runnerTotal / 2
 
     runners.forEach((place) => {
       drawCover(
@@ -296,7 +297,7 @@ export async function generateShareCard({
     const totalWidth =
       widths.reduce((sum, w) => sum + w, 0) +
       podiumColumnGap * (columns.length - 1)
-    let x = (width - totalWidth) / 2
+    let x = podiumCentreX - totalWidth / 2
 
     columns.forEach((place, index) => {
       const track = podium[place - 1]
@@ -338,31 +339,22 @@ export async function generateShareCard({
   // back, and the badges and covers carry the rhythm instead.
   if (rowsSharePanel && rest.length > 0) {
     const panelHeight =
-      rowsPerColumn * rowHeight + Math.max(0, rowsPerColumn - 1) * rowGap
+      rowCount * rowHeight + Math.max(0, rowCount - 1) * rowGap
 
-    for (let pane = 0; pane < rowColumns; pane++) {
-      if (rest.length <= pane * rowsPerColumn) continue
-
-      const paneX = marginX + pane * (rowPaneWidth + rowPaneGap)
-      ctx.fillStyle = colours.card
-      ctx.strokeStyle = colours.border
-      ctx.lineWidth = 2
-      roundRect(ctx, paneX, rowsTop, rowPaneWidth, panelHeight, 26)
-      ctx.fill()
-      ctx.stroke()
-    }
+    ctx.fillStyle = colours.card
+    ctx.strokeStyle = colours.border
+    ctx.lineWidth = 2
+    roundRect(ctx, rowsPaneX, rowsTop, rowsPaneWidth, panelHeight, 26)
+    ctx.fill()
+    ctx.stroke()
   }
 
   rest.forEach((track, index) => {
     const place = index + 4
     const cover = covers[index + 3] ?? null
 
-    // A wide card sets the rows in two panes, so the column and the row within
-    // it come from the index rather than the index being the row.
-    const column = rowColumns > 1 ? Math.floor(index / rowsPerColumn) : 0
-    const rowInColumn = rowColumns > 1 ? index % rowsPerColumn : index
-    const paneX = marginX + column * (rowPaneWidth + rowPaneGap)
-    const y = rowsTop + rowInColumn * (rowHeight + rowGap)
+    const paneX = rowsPaneX
+    const y = rowsTop + index * (rowHeight + rowGap)
     const colour = PLACE_COLOURS[place - 1] ?? colours.border
 
     // A box each, except where they share a panel and the boxes would only draw
@@ -371,7 +363,7 @@ export async function generateShareCard({
       ctx.fillStyle = colours.card
       ctx.strokeStyle = colours.border
       ctx.lineWidth = 2
-      roundRect(ctx, paneX, y, rowPaneWidth, rowHeight, 20)
+      roundRect(ctx, paneX, y, rowsPaneWidth, rowHeight, 20)
       ctx.fill()
       ctx.stroke()
     }
@@ -399,7 +391,7 @@ export async function generateShareCard({
     // where two would crowd a 65 pixel row. Every other card has room to stack
     // them, which is how the results screen reads too.
     const textX = artX + rowArt + (tall ? 28 : 22)
-    const metaRight = paneX + rowPaneWidth - 30
+    const metaRight = paneX + rowsPaneWidth - 30
     const length = formatDurationMs(track.durationMs)
     const meta = length ? `${track.artist} · ${length}` : track.artist
 
