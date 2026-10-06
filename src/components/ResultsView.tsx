@@ -3,10 +3,10 @@
 import { useRanker } from '../context/RankerContext'
 import ShareCardModal from './ShareCardModal'
 import DuelInviteModal from './DuelInviteModal'
+import TrackArtwork from './TrackArtwork'
 import { sessionProgress, SETTLED_TOP_PER_SONG } from '../lib/sessionProgress'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
-import Image from 'next/image'
 
 export default function ResultsView() {
   const { rankings, tracks, playlistName, completedComparisons, resetRanker } = useRanker()
@@ -96,19 +96,7 @@ export default function ResultsView() {
 
                 {/* Album Art */}
                 <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
-                  {track.coverImage ? (
-                    <Image
-                      src={track.coverImage}
-                      alt={track.title}
-                      width={64}
-                      height={64}
-                      className='object-cover'
-                    />
-                  ) : (
-                    <div className='w-full h-full flex items-center justify-center text-slate-400'>
-                      ♪
-                    </div>
-                  )}
+                  <TrackArtwork src={track.coverImage} alt={track.title} />
                 </div>
 
                 {/* Track Info */}

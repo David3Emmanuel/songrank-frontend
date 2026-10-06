@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { getDuelComparison } from '../lib/duelApi'
 import type { DuelComparison, Track } from '../lib/types'
+import TrackArtwork from './TrackArtwork'
 import { Trophy, TrendingUp, AlertTriangle, Loader2 } from 'lucide-react'
-import Image from 'next/image'
 
 interface DuelComparisonViewProps {
   duelId: string
@@ -126,13 +126,7 @@ export default function DuelComparisonView({
                   <div key={songId} className='bg-slate-50 border border-slate-200 rounded-lg p-3'>
                     {track.coverImage && (
                       <div className='aspect-square rounded-lg overflow-hidden mb-2'>
-                        <Image
-                          src={track.coverImage}
-                          alt={track.title}
-                          width={200}
-                          height={200}
-                          className='object-cover w-full h-full'
-                        />
+                        <TrackArtwork src={track.coverImage} alt={track.title} />
                       </div>
                     )}
                     <p className='font-semibold text-sm truncate'>
@@ -166,13 +160,7 @@ export default function DuelComparisonView({
                   >
                     {track.coverImage && (
                       <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden'>
-                        <Image
-                          src={track.coverImage}
-                          alt={track.title}
-                          width={64}
-                          height={64}
-                          className='object-cover w-full h-full'
-                        />
+                        <TrackArtwork src={track.coverImage} alt={track.title} />
                       </div>
                     )}
                     <div className='flex-1 min-w-0'>

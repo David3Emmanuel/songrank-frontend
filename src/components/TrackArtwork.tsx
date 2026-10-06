@@ -1,37 +1,39 @@
 'use client'
 
-import Image from 'next/image'
+/* eslint-disable @next/next/no-img-element -- Image optimisation is switched off
+   app-wide (see next.config.ts), so next/image would only add a wrapper and
+   attribute juggling. A plain img, sized by its parent, is what we want. */
+
 import { useState } from 'react'
 import { Music } from 'lucide-react'
 
 interface TrackArtworkProps {
   src?: string
   alt: string
-  /** Fill the (positioned) parent, as the comparison cards do. */
+  /** Pin to the (positioned) parent, as the comparison cards do. */
   fill?: boolean
-  width?: number
-  height?: number
-  sizes?: string
   className?: string
   fallbackClassName?: string
 }
 
 /**
- * A cover that always renders something.
+ * A cover that always renders something, always filling its frame.
  *
- * Cover URLs are third-party and can rot or simply fail to load — half the demo
- * playlist's were dead 404s. Without this the browser paints a broken-image icon
- * and the alt text across the card, which reads as a rendering bug rather than a
- * missing image.
+ * Two things it has to get right:
+ *
+ * - Sizing comes from the parent (`h-full w-full`), never from the image's own
+ *   dimensions. Covers here are YouTube thumbnails: 16:9 frames with the album
+ *   art letterboxed inside them, so anything short of a forced crop shows the
+ *   bars that are baked into the source.
+ * - Third-party cover URLs rot. Half the demo playlist's were dead 404s, and
+ *   without the fallback the browser paints a broken-image icon with the alt
+ *   text across the card.
  */
 export default function TrackArtwork({
   src,
   alt,
   fill = false,
-  width,
-  height,
-  sizes,
-  className,
+  className = 'object-cover',
   fallbackClassName = 'flex h-full w-full items-center justify-center',
 }: TrackArtworkProps) {
   // Keyed on the src rather than a bare boolean. The card slots are reused for
@@ -48,25 +50,16 @@ export default function TrackArtwork({
     )
   }
 
-  const onError = () => setFailedSrc(src)
-
-  return fill ? (
-    <Image
+  return (
+    <img
       src={src}
       alt={alt}
-      fill
-      sizes={sizes}
-      className={className}
-      onError={onError}
-    />
-  ) : (
-    <Image
-      src={src}
-      alt={alt}
-      width={width ?? 40}
-      height={height ?? 40}
-      className={className}
-      onError={onError}
+      loading='lazy'
+      decoding='async'
+      onError={() => setFailedSrc(src)}
+      className={[fill ? 'absolute inset-0' : '', 'h-full w-full', className]
+        .filter(Boolean)
+        .join(' ')}
     />
   )
 }

@@ -75,13 +75,7 @@ export default function LiveRankings({
 
                     {/* Album Art */}
                     <div className='shrink-0 w-10 h-10 rounded overflow-hidden bg-slate-100 text-slate-300'>
-                      <TrackArtwork
-                        src={track.coverImage}
-                        alt={track.title}
-                        width={40}
-                        height={40}
-                        className='object-cover'
-                      />
+                      <TrackArtwork src={track.coverImage} alt={track.title} />
                     </div>
 
                     {/* Track Info */}
@@ -211,13 +205,7 @@ export default function LiveRankings({
 
                         {/* Album Art */}
                         <div className='shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
-                          <TrackArtwork
-                            src={track.coverImage}
-                            alt={track.title}
-                            width={48}
-                            height={48}
-                            className='object-cover'
-                          />
+                          <TrackArtwork src={track.coverImage} alt={track.title} />
                         </div>
 
                         {/* Track Info */}

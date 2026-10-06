@@ -118,7 +118,6 @@ export default function SongCard({
           src={track.coverImage}
           alt={track.title}
           fill
-          sizes='(max-width: 768px) 160px, 256px'
           className='object-cover'
         />
 
