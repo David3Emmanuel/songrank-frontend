@@ -64,8 +64,10 @@ test('an obfuscated title does not dodge the rules', () => {
     video('real', 'Rainforest', 'Noname - Topic'),
   ])
 
-  // Folding the characters down is what lets the slowed-reverb rule see it.
-  assert.equal(grouped.filtered, 1)
+  // Folding them down is what lets the row match the plain title; without that
+  // the key comes out empty and this becomes a second song of its own.
+  assert.equal(grouped.songs.length, 1)
+  assert.equal(grouped.duplicates, 1)
   assert.deepEqual(
     grouped.songs.map((song) => song.id),
     ['real'],
@@ -85,14 +87,63 @@ test('a song-first title still finds the song', () => {
   assert.equal(grouped.songs[0].id, 'real')
 })
 
-test('karaoke and sped up takes are dropped as not the song', () => {
+test('karaoke and sped up takes collapse into the song', () => {
+  // The same song, badly uploaded. These fold into one entry rather than being
+  // dropped: nobody should be asked to rank a song against itself.
   const grouped = groupVideos([
     video('real', 'Rainforest', 'Noname - Topic'),
     video('karaoke', 'Rainforest - Noname Karaoke', 'Seongchal Karaoke'),
     video('sped', 'Rainforest - Noname (sped up)', 'YUTAKA'),
   ])
 
-  assert.equal(grouped.filtered, 2)
+  assert.equal(grouped.songs.length, 1)
+  assert.equal(grouped.duplicates, 2)
+  assert.equal(grouped.filtered, 0)
+  assert.deepEqual(
+    grouped.songs.map((song) => song.id),
+    ['real'],
+  )
+})
+
+test('the entity type beats the channel name', () => {
+  // A reupload on a Topic-looking channel loses to the official track.
+  const grouped = groupVideos([
+    {
+      ...video('ugc', 'Rainforest', 'Noname - Topic'),
+      videoType: 'MUSIC_VIDEO_TYPE_UGC',
+    },
+    {
+      ...video('atv', 'Rainforest', 'Some Aggregator'),
+      videoType: 'MUSIC_VIDEO_TYPE_ATV',
+    },
+  ])
+
+  assert.equal(grouped.songs.length, 1)
+  assert.equal(grouped.songs[0].id, 'atv')
+})
+
+test('an official video beats user generated content', () => {
+  const grouped = groupVideos([
+    {
+      ...video('ugc', 'Rainforest', 'Reuploads R Us'),
+      videoType: 'MUSIC_VIDEO_TYPE_UGC',
+    },
+    {
+      ...video('omv', 'Rainforest', 'Reuploads R Us'),
+      videoType: 'MUSIC_VIDEO_TYPE_OMV',
+    },
+  ])
+
+  assert.equal(grouped.songs[0].id, 'omv')
+})
+
+test('a row called a review is still dropped', () => {
+  const grouped = groupVideos([
+    video('review', 'Rainforest ALBUM REVIEW', 'Some Channel'),
+    video('real', 'Rainforest', 'Noname - Topic'),
+  ])
+
+  assert.equal(grouped.filtered, 1)
   assert.deepEqual(
     grouped.songs.map((song) => song.id),
     ['real'],

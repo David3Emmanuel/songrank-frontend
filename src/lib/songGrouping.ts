@@ -17,6 +17,12 @@ export interface CandidateVideo {
   title: string
   channelTitle?: string
   durationMs: number
+  /**
+   * YouTube Music's own label for the row, when the source provides one:
+   * MUSIC_VIDEO_TYPE_ATV for the official track, OMV for an official video, UGC
+   * for a reupload. Better evidence than the channel name when it is there.
+   */
+  videoType?: string
 }
 
 export interface GroupedSongs<T extends CandidateVideo> {
@@ -50,9 +56,14 @@ const BRACKETS = /[([{][^)\]}]*[)\]}]/g
 /** A trailing segment that continues the title rather than naming the artist. */
 const CONTINUATION = /^(part|pt|chapter|vol|volume|act|book|disc|no)\b/i
 
-/** Titles that describe something other than the song being ranked. */
+/**
+ * Words that describe an upload rather than a song. Reuploads and slowed or
+ * sped-up versions used to be listed here too, but those are now told apart by
+ * the entity type and by grouping, and the words themselves collide with real
+ * titles.
+ */
 const NOT_A_SONG =
-  /\b(reaction|reacts|review|reviews|interview|podcast|concert|behind the scenes|making of|tutorial|lesson|how to|full album|mixtape|compilation|documentary|trailer|teaser|unboxing|loop|slowed|reverb|sped up|8d audio|karaoke)\b/i
+  /\b(reaction|reacts|review|reviews|interview|podcast|concert|behind the scenes|making of|tutorial|lesson|how to|full album|mixtape|compilation|documentary|trailer|teaser|unboxing)\b/i
 
 function fold(value: string): string {
   return normalizeUnicode(value)
@@ -132,11 +143,21 @@ export function songTitleKey(title: string): string {
 }
 
 /**
- * How much a channel looks like the source of the real recording. Auto-generated
- * artist channels carry the label's own audio, so they win.
+ * How much an entry looks like the real recording of the song.
+ *
+ * YouTube Music's own type wins when it is present. Without one, the channel
+ * name is all there is to go on: auto-generated artist channels carry the
+ * label's own audio, so they come next.
  */
-function officialScore(channelTitle: string | undefined): number {
-  const channel = (channelTitle ?? '').toLowerCase()
+function officialRank(video: CandidateVideo): number {
+  const type = video.videoType ?? ''
+  if (type) {
+    if (type === 'MUSIC_VIDEO_TYPE_ATV') return 4
+    if (type === 'MUSIC_VIDEO_TYPE_OMV') return 3
+    return 1
+  }
+
+  const channel = (video.channelTitle ?? '').toLowerCase()
   if (/\btopic\b/.test(channel)) return 3
   if (/vevo|official/.test(channel)) return 2
   return 1
@@ -147,7 +168,7 @@ function officialScore(channelTitle: string | undefined): number {
  * title, then whichever YouTube ranked higher.
  */
 function betterOf<T extends CandidateVideo>(a: T, b: T): T {
-  const official = officialScore(a.channelTitle) - officialScore(b.channelTitle)
+  const official = officialRank(a) - officialRank(b)
   if (official !== 0) return official > 0 ? a : b
 
   // Measured against the raw title, so a title carrying more decoration loses.

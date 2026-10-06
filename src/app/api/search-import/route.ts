@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  YouTubeAdapter,
-  YouTubeApiError,
-} from '../../../lib/adapters/youtube'
+import { YouTubeAdapter, YouTubeApiError } from '../../../lib/adapters/youtube'
+import { YouTubeMusicAdapter } from '../../../lib/adapters/youtubeMusic'
 
-/** Results fetched per query. `search.list` is 100 quota units whatever we ask for. */
+/** Results fetched per query. Both endpoints cap around this anyway. */
 const RESULT_COUNT = 25
 
 export async function GET(request: NextRequest) {
@@ -17,23 +15,16 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // No API key is needed to search: this goes through the music web player's own
+  // endpoint. A key only improves the results, by adding track lengths.
   const apiKey = process.env.YOUTUBE_API_KEY
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          'Searching is not switched on for this server yet, so nothing came back.',
-      },
-      { status: 503 },
-    )
-  }
 
   try {
-    const adapter = new YouTubeAdapter(apiKey)
-    const collection = await adapter.searchCollection(query, RESULT_COUNT)
+    const collection = await new YouTubeMusicAdapter().searchCollection(
+      query,
+      RESULT_COUNT,
+    )
 
-    // One song is a fine addition now that lists are built up over time, so only
-    // a completely empty answer is worth reporting.
     if (collection.tracks.length === 0) {
       return NextResponse.json(
         {
@@ -43,15 +34,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    if (apiKey) {
+      const tracks = await new YouTubeAdapter(apiKey).fillDurations(
+        collection.tracks,
+      )
+      return NextResponse.json({ ...collection, tracks })
+    }
+
     return NextResponse.json(collection)
   } catch (err) {
     if (err instanceof YouTubeApiError) {
       // The reason is logged rather than shown: it is written for developers.
-      console.error('YouTube search refused:', err.status, err.message)
+      console.error('Music search refused:', err.status, err.message)
       return NextResponse.json(
         {
           error:
-            'YouTube turned that search down. That usually means the API key is wrong or today’s quota is used up.',
+            'YouTube Music turned that search down. That usually means the search endpoint changed and needs updating.',
         },
         { status: 502 },
       )

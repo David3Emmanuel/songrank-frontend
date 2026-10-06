@@ -296,6 +296,28 @@ export class YouTubeAdapter {  private apiKey: string
   }
 
   /**
+   * Fills in track lengths for tracks that came from somewhere else.
+   *
+   * YouTube Music's search endpoint carries a length on almost none of its rows,
+   * so when an API key happens to be configured the Data API is asked instead.
+   * One unit per fifty tracks, against a hundred for a search, and tracks keep
+   * their blank length rather than failing if the call does not work.
+   */
+  async fillDurations(tracks: Track[]): Promise<Track[]> {
+    const missing = tracks.filter((track) => !track.durationMs)
+    if (missing.length === 0) return tracks
+
+    const durations = await this.fetchDurations(missing.map((track) => track.id))
+    if (durations.size === 0) return tracks
+
+    return tracks.map((track) =>
+      track.durationMs
+        ? track
+        : { ...track, durationMs: durations.get(track.id) ?? 0 },
+    )
+  }
+
+  /**
    * Durations for a list of videos, keyed by id, in batches of 50.
    *
    * A failed batch leaves those tracks at 0 rather than failing the import:
