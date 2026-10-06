@@ -1,4 +1,29 @@
 import type { SongCollection, Track } from '../types'
+import {
+  artistFromChannelTitle,
+  chunkIds,
+  parseIsoDurationMs,
+} from '../videoMetadata'
+
+/** The slice of videos.list this adapter reads. */
+interface VideosListResponse {
+  items?: Array<{
+    id: string
+    contentDetails?: { duration?: string }
+  }>
+}
+
+/** The slice of playlistItems.list this adapter reads. */
+interface PlaylistItemsResponse {
+  items?: Array<{
+    contentDetails: { videoId: string }
+    snippet: {
+      title: string
+      videoOwnerChannelTitle?: string
+      thumbnails?: Record<string, { url: string }>
+    }
+  }>
+}
 
 export class YouTubeAdapter {
   private apiKey: string
@@ -76,16 +101,21 @@ export class YouTubeAdapter {
           key: this.apiKey,
         }),
     )
-    const itemsData = await itemsRes.json()
+    const itemsData = (await itemsRes.json()) as PlaylistItemsResponse
+
+    // Lengths live on the video, not on the playlist item, so they need one more
+    // call: 1 quota unit per 50 tracks.
+    const videoIds = itemsData.items?.map((item) => item.contentDetails.videoId) ?? []
+    const durations = await this.fetchDurations(videoIds)
 
     const playlist = playlistData.items[0]
     const tracks: Track[] =
-      itemsData.items?.map((item: any) => ({
+      itemsData.items?.map((item) => ({
         id: item.contentDetails.videoId,
         title: item.snippet.title,
-        artist: item.snippet.videoOwnerChannelTitle || 'Unknown Artist',
+        artist: artistFromChannelTitle(item.snippet.videoOwnerChannelTitle),
         album: '',
-        durationMs: 0,
+        durationMs: durations.get(item.contentDetails.videoId) ?? 0,
         coverImage:
           item.snippet.thumbnails?.maxres?.url ||
           item.snippet.thumbnails?.high?.url ||
@@ -107,6 +137,37 @@ export class YouTubeAdapter {
       etag: playlist.etag,
       tracks: tracks,
     }
+  }
+
+  /**
+   * Durations for a list of videos, keyed by id, in batches of 50.
+   *
+   * A failed batch leaves those tracks at 0 rather than failing the import:
+   * lengths improve the ranking screen, they are not what the user asked for.
+   */
+  private async fetchDurations(videoIds: string[]): Promise<Map<string, number>> {
+    const durations = new Map<string, number>()
+
+    for (const batch of chunkIds(videoIds, 50)) {
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?` +
+            new URLSearchParams({
+              part: 'contentDetails',
+              id: batch.join(','),
+              key: this.apiKey,
+            }),
+        )
+        const data = (await res.json()) as VideosListResponse
+        for (const item of data.items ?? []) {
+          durations.set(item.id, parseIsoDurationMs(item.contentDetails?.duration))
+        }
+      } catch {
+        // Leave this batch at 0 and carry on.
+      }
+    }
+
+    return durations
   }
 
   async createPlaylist(title: string, description: string): Promise<string> {
