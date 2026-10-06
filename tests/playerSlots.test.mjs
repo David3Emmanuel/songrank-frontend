@@ -12,6 +12,7 @@ import {
   stuckCued,
   YT_BUFFERING,
   YT_CUED,
+  YT_ENDED,
   YT_PAUSED,
   YT_PLAYING,
   YT_UNSTARTED,
@@ -257,8 +258,12 @@ const applied = (videoId, intent) => ({ videoId, intent })
 test('a slot told to play that is only cued is stuck', () => {
   assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_CUED), true)
   assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_PAUSED), true)
-  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_UNSTARTED), true)
-  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', null), true)
+  // A finished track is left ended, not nudged back to the start.
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_ENDED), false)
+  // A slow link spends seconds unstarted or unknown, which is a load in progress:
+  // asking again there would restart the load rather than rescue it.
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_UNSTARTED), false)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', null), false)
 })
 
 test('a slot that is playing or buffering is left alone', () => {

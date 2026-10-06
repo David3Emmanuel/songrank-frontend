@@ -153,7 +153,7 @@ export function shouldHoldStart(sides: SlotReadiness[]): boolean {
 }
 
 /** How long a slot may sit told-to-play-but-not-playing before it is asked again. */
-export const NUDGE_AFTER_MS = 2000
+export const NUDGE_AFTER_MS = 4000
 
 /** How many times one slot may be asked again for the same video. */
 export const NUDGE_LIMIT = 3
@@ -169,8 +169,10 @@ export const NUDGE_LIMIT = 3
  * silent until something else re-issues the command. Hiding and showing the page is
  * what does it today, because that suspends the pool and the resume asks again.
  *
- * Playing and buffering are on the way. Anything else, once the grace period has
- * passed, means the ask did not take.
+ * Only a player that is sitting still counts as stuck: cued, or paused without the
+ * pool asking. Unstarted, unknown and buffering are a load in progress, and on a
+ * slow connection that lasts seconds, so asking again would restart the load. A
+ * track that has ended is left ended rather than played again.
  */
 export function stuckCued(
   applied: AppliedSlot | null,
@@ -182,8 +184,9 @@ export function stuckCued(
   if (!applied || applied.videoId !== videoId || applied.intent !== 'playing') {
     return false
   }
-  return ytState !== YT_PLAYING && ytState !== YT_BUFFERING
+  return ytState === YT_CUED || ytState === YT_PAUSED
 }
+
 /**
  * The commands that take one slot from what was applied to it to what it should
  * be doing, given the length of the track it holds.
