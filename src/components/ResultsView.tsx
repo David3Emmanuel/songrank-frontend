@@ -89,31 +89,52 @@ export default function ResultsView() {
         </div>
 
         {/* Podium for the top three. Second and third flank the winner, and a
-            place nobody reached stays as an empty pedestal. */}
+            place nobody reached stays as an empty pedestal. The song block takes
+            the same score tint as a list row, while the pedestal keeps the place
+            colours, so colour means score and height and colour of pedestal mean
+            place. */}
         <div className='mb-8 flex items-end justify-center gap-3'>
           {[2, 1, 3].map((place) => {
-            const item = rankedTracks[place - 1]
+            const index = place - 1
+            const item = rankedTracks[index]
             const track = item?.track
+            const unmeasured = !measured[index]
+            const tint = !track || unmeasured
+              ? undefined
+              : scoreTint(normalizeScore(scores[index], range))
             const pedestal = place === 1 ? 108 : place === 2 ? 80 : 60
 
             return (
               <div key={place} className='flex w-32 flex-col items-center'>
                 {track ? (
-                  <>
+                  <div
+                    className={`mb-2 flex w-full flex-col items-center rounded-xl border border-slate-200/80 p-2 ${
+                      unmeasured ? 'bg-slate-100/80' : ''
+                    }`}
+                    style={{ backgroundColor: tint }}
+                  >
                     <div
                       className={`mb-2 overflow-hidden rounded-xl bg-slate-100 shadow-sm ${
                         place === 1 ? 'h-20 w-20' : 'h-16 w-16'
-                      }`}
+                      } ${unmeasured ? 'opacity-60' : ''}`}
                     >
                       <TrackArtwork src={track.coverImage} alt={track.title} />
                     </div>
-                    <p className='w-full truncate text-center text-sm font-semibold'>
+                    <p
+                      className={`w-full truncate text-center text-sm font-semibold ${
+                        unmeasured ? 'text-slate-400' : 'text-slate-900'
+                      }`}
+                    >
                       {track.title}
                     </p>
-                    <p className='mb-2 w-full truncate text-center text-xs text-slate-500'>
+                    <p
+                      className={`w-full truncate text-center text-xs ${
+                        unmeasured ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
                       {track.artist}
                     </p>
-                  </>
+                  </div>
                 ) : (
                   <div className='mb-2 h-16 w-16 rounded-xl border border-dashed border-slate-200' />
                 )}
