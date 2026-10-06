@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RankerProvider, useRanker } from '../context/RankerContext'
 import RankingArena from '../components/RankingArena'
+import PoolPrewarm from '../components/PoolPrewarm'
 import ResultsView from '../components/ResultsView'
 import LandingBackground from '../components/LandingBackground'
 import YouTubeImportModal from '../components/YouTubeImportModal'
@@ -195,6 +196,10 @@ function DashboardContent() {
   return (
     <div className='relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50 text-slate-900'>
       <LandingBackground />
+
+      {/* Warm the first comparison while the list is still being put together.
+          Cued and muted, and unmounted above the moment the arena takes over. */}
+      {canStart && <PoolPrewarm tracks={draft} />}
 
       <div className='relative mx-auto w-full max-w-2xl px-6 py-12'>
         <header className='animate-rise text-center'>

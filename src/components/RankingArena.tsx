@@ -31,6 +31,7 @@ import {
 } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 import { sessionProgress } from '../lib/sessionProgress'
+import { OFFSCREEN, PLAYER_OPTS } from '../lib/playerOptions'
 import { List, ListChecks, Pause, Play, RotateCcw, Undo2, X } from 'lucide-react'
 import {
   useCallback,
@@ -64,19 +65,7 @@ function getVideoId(track: Track): string {
  */
 const MAX_RELOADS = 2
 
-const PLAYER_OPTS = {
-  height: '1',
-  width: '1',
-  playerVars: { autoplay: 0, playsinline: 1, controls: 0, disablekb: 1 },
-}
 
-const OFFSCREEN: React.CSSProperties = {
-  position: 'absolute',
-  top: -9999,
-  left: -9999,
-  visibility: 'hidden',
-  pointerEvents: 'none',
-}
 
 // ─── Player plumbing ──────────────────────────────────────────────────────────
 //
