@@ -6,6 +6,7 @@ import DuelInviteModal from './DuelInviteModal'
 import TrackArtwork from './TrackArtwork'
 import { sessionProgress } from '../lib/sessionProgress'
 import { bandStarts, measuredRange, normalizeScore, scoreTint } from '../lib/scoreDisplay'
+import { formatDurationMs } from '../lib/videoMetadata'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 
@@ -88,59 +89,69 @@ export default function ResultsView() {
           </button>
         </div>
 
-        {/* Podium for the top three. Second and third flank the winner, and the
-            cover sits inside each block so the winner's block shows the biggest
-            artwork. A place nobody reached stays as an empty block. */}
-        <div className='mb-8 flex items-end justify-center gap-3'>
+        {/* Podium for the top three: a card each, with a floating place badge,
+            the winner's card a size larger, and the bottoms aligned. A place
+            nobody reached keeps the card shape with an empty frame. */}
+        <div className='mb-8 flex items-end justify-center gap-2 sm:gap-4 md:gap-6'>
           {[2, 1, 3].map((place) => {
             const item = rankedTracks[place - 1]
             const track = item?.track
-            const pedestal = place === 1 ? 120 : place === 2 ? 96 : 72
-            const cover = place === 1 ? 72 : place === 2 ? 56 : 44
+            const duration = formatDurationMs(track?.durationMs)
+            const winner = place === 1
+
+            const badge =
+              place === 1
+                ? 'bg-amber-500'
+                : place === 2
+                  ? 'bg-slate-400'
+                  : 'bg-orange-500'
+            const frame =
+              place === 1
+                ? 'border-amber-300 shadow-lg shadow-amber-500/10'
+                : place === 2
+                  ? 'border-slate-300'
+                  : 'border-orange-300'
 
             return (
-              <div key={place} className='flex w-32 flex-col items-center'>
-                <div
-                  className={`relative flex w-full items-center justify-center rounded-t-xl border border-b-0 border-slate-200/80 ${
-                    place === 1
-                      ? 'bg-amber-100'
-                      : place === 2
-                        ? 'bg-slate-200'
-                        : 'bg-orange-100'
-                  }`}
-                  style={{ height: pedestal }}
+              <div
+                key={place}
+                className={`relative rounded-2xl border bg-white/70 p-2.5 backdrop-blur-md sm:p-3 md:p-4 ${frame} ${
+                  winner ? 'w-28 sm:w-40 md:w-56' : 'w-24 sm:w-36 md:w-48'
+                }`}
+              >
+                <span
+                  className={`absolute -top-3 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full text-xs font-bold text-white md:h-7 md:w-7 md:text-sm ${badge}`}
                 >
-                  <span className='absolute top-2 left-2 rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-slate-700'>
-                    {place}
-                  </span>
+                  {place}
+                </span>
 
+                <div className='aspect-square w-full overflow-hidden rounded-xl bg-slate-100'>
                   {track ? (
-                    <div
-                      className='overflow-hidden rounded-lg bg-white shadow-sm'
-                      style={{ width: cover, height: cover }}
-                    >
-                      <TrackArtwork
-                        src={track.coverImage}
-                        alt={track.title}
-                        higherQuality
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className='rounded-lg border border-dashed border-slate-300'
-                      style={{ width: cover, height: cover }}
+                    <TrackArtwork
+                      src={track.coverImage}
+                      alt={track.title}
+                      higherQuality
                     />
+                  ) : (
+                    <div className='flex h-full w-full items-center justify-center'>
+                      <div className='h-1/2 w-1/2 rounded-full border border-dashed border-slate-300' />
+                    </div>
                   )}
                 </div>
 
                 {track && (
                   <>
-                    <p className='mt-2 w-full truncate text-center text-sm font-semibold'>
+                    <p className='mt-3 truncate text-center text-sm font-bold md:text-base'>
                       {track.title}
                     </p>
-                    <p className='w-full truncate text-center text-xs text-slate-500'>
+                    <p className='truncate text-center text-xs text-slate-500 md:text-sm'>
                       {track.artist}
                     </p>
+                    {duration && (
+                      <p className='mt-0.5 text-center text-xs text-slate-400'>
+                        {duration}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
