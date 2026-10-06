@@ -1,15 +1,13 @@
 /**
  * THROWAWAY demo. Not linked from anywhere and not part of the app.
  *
- * Bands plus score-coloured cards are settled: tint 0.12 on every column. This
- * round varies how a song's score is expressed as LENGTH, three ways:
+ * The settled treatment: bands plus score-coloured cards at tint 0.12. This
+ * round varies how many songs are in the list, to see how it holds up as it
+ * grows. Rows are a fixed height and the list scrolls, like the real sidebar, so
+ * the three columns are directly comparable.
  *
- *   width  the card itself is shorter for a worse song
- *   bar    the card is full width, with a length bar inside it
- *   indent the card's left edge moves right for a worse song
- *
- * Scores are invented on the +1 to -1 scale. A row nobody has picked is grey and
- * carries no length. Delete this route once a variant is chosen.
+ * Scores are invented on the +1 to -1 scale. Some songs have no picks, which puts
+ * them at 0 like the real ranker. Delete this route once the lengths are checked.
  */
 
 import TrackArtwork from '../../components/TrackArtwork'
@@ -24,45 +22,71 @@ type Row = {
 }
 
 const AFTER_HOURS = 'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36'
+const LEVITATING = 'https://i.scdn.co/image/ab67616d00001e02c88bae7846e62a8ba59ee0bd'
+const GOOD_4_U = 'https://i.scdn.co/image/ab67616d0000b273a91c10fe9472d9bd89802e5a'
+const HEAT_WAVES = 'https://i.scdn.co/image/ab67616d00001e029e495fb707973f3390850eea'
+const COVERS = [AFTER_HOURS, LEVITATING, GOOD_4_U, HEAT_WAVES]
 
-const ROWS: Row[] = [
-  { title: 'Blinding Lights', artist: 'The Weeknd', cover: AFTER_HOURS, score: 0.9, picks: 4 },
-  { title: 'Save Your Tears', artist: 'The Weeknd', cover: AFTER_HOURS, score: 0.78, picks: 4 },
-  {
-    title: 'Levitating',
-    artist: 'Dua Lipa',
-    cover: 'https://i.scdn.co/image/ab67616d00001e02c88bae7846e62a8ba59ee0bd',
-    score: 0.2,
-    picks: 3,
-  },
-  { title: 'No More Lies', artist: 'Thundercat', cover: '', score: 0, picks: 0 },
-  {
-    title: 'Good 4 U',
-    artist: 'Olivia Rodrigo',
-    cover: 'https://i.scdn.co/image/ab67616d0000b273a91c10fe9472d9bd89802e5a',
-    score: -0.05,
-    picks: 2,
-  },
-  {
-    title: 'Heat Waves',
-    artist: 'Glass Animals',
-    cover: 'https://i.scdn.co/image/ab67616d00001e029e495fb707973f3390850eea',
-    score: -0.55,
-    picks: 1,
-  },
+const POOL = [
+  { title: 'These Walls', artist: 'Kendrick Lamar' },
+  { title: 'Rainforest', artist: 'Noname' },
+  { title: "Bitch, Don't Kill My Vibe", artist: 'Kendrick Lamar' },
+  { title: 'Majesty', artist: 'Peruzzi' },
+  { title: "Somethin' Ain't Right", artist: 'Release' },
+  { title: 'Feeling', artist: 'Noname' },
+  { title: 'black mirror', artist: 'Noname' },
+  { title: 'Trouble Sleep Yanga Wake Am', artist: 'Noname' },
+  { title: 'No Rest for the Wicked', artist: 'Kendrick Lamar' },
+  { title: 'No More Lies', artist: 'Thundercat' },
+  { title: 'Blinding Lights', artist: 'The Weeknd' },
+  { title: 'Save Your Tears', artist: 'The Weeknd' },
+  { title: 'Levitating', artist: 'Dua Lipa' },
+  { title: 'Good 4 U', artist: 'Olivia Rodrigo' },
+  { title: 'Heat Waves', artist: 'Glass Animals' },
+  { title: 'Alright', artist: 'Kendrick Lamar' },
+  { title: 'Telephone', artist: 'Noname' },
+  { title: 'Come Down', artist: 'Anderson .Paak' },
+  { title: 'Them Changes', artist: 'Thundercat' },
+  { title: 'Dang!', artist: 'Mac Miller' },
 ]
 
-const TINT = 0.12
-const MIN_LENGTH = 45
+/** Uneven separations, so clusters and clear drops both appear at any length. */
+const GAP_PATTERN = [
+  0.34, 0.06, 0.09, 0.28, 0.05, 0.07, 0.22, 0.04, 0.12, 0.08, 0.18, 0.05, 0.06,
+  0.2, 0.09, 0.04, 0.15, 0.07, 0.11,
+]
+const TOP_SCORE = 0.95
+const SPAN = 1.85
+
+/** A list of n songs, spread across the scale, with some still unpicked. */
+function buildRows(n: number): Row[] {
+  const gaps = GAP_PATTERN.slice(0, Math.max(1, n - 1))
+  const scale = SPAN / gaps.reduce((sum, gap) => sum + gap, 0)
+
+  const scores = [TOP_SCORE]
+  gaps.forEach((gap) => scores.push(scores[scores.length - 1] - gap * scale))
+
+  const unpicked = new Set<number>()
+  for (let k = 0; k < Math.round(n * 0.15); k++) {
+    unpicked.add(Math.floor(n / 2) + k)
+  }
+
+  return POOL.slice(0, n)
+    .map((entry, i) => ({
+      ...entry,
+      cover: COVERS[i % COVERS.length],
+      score: unpicked.has(i) ? 0 : scores[i],
+      picks: unpicked.has(i) ? 0 : Math.max(1, Math.round((n - i) / 2)),
+    }))
+    .sort((a, b) => b.score - a.score)
+}
 
 const GREEN = [16, 185, 129]
 const AMBER = [245, 158, 11]
 const RED = [244, 63, 94]
+const TINT = 0.12
 
-/**
- * +1 is green, -1 is red, 0 is amber, clamped outside the scale. Proportional, so
- * two songs that scored nearly the same get nearly the same colour.
- */
+/** +1 is green, -1 is red, 0 is amber, clamped outside the scale. */
 function scoreColor(score: number, alpha: number): string {
   const t = Math.min(1, Math.max(0, (score + 1) / 2))
   const [from, to, local] =
@@ -71,117 +95,85 @@ function scoreColor(score: number, alpha: number): string {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`
 }
 
-/** How far up the scale a song sits, 0 at -1 and 1 at +1. */
-const strength = (score: number) => Math.min(1, Math.max(0, (score + 1) / 2))
+/** Band boundaries: a gap of at least half the largest, below a picked row. */
+function bandFlags(rows: Row[]): boolean[] {
+  const gaps = rows.map((row, i) => (i === 0 ? 0 : rows[i - 1].score - row.score))
+  const maxGap = Math.max(...gaps)
+  return rows.map((row, i) => i > 0 && row.picks > 0 && gaps[i] >= maxGap * 0.5)
+}
 
-/** Length as a percentage of the full row, from the score. */
-const lengthPercent = (row: Row) =>
-  row.picks === 0 ? 100 : MIN_LENGTH + strength(row.score) * (100 - MIN_LENGTH)
-
-const GAPS = ROWS.map((row, i) => (i === 0 ? 0 : ROWS[i - 1].score - row.score))
-const MAX_GAP = Math.max(...GAPS)
-const BAND_GAP = MAX_GAP * 0.5
-const startsBand = (i: number) => i > 0 && ROWS[i].picks > 0 && GAPS[i] >= BAND_GAP
-
-type LengthMode = 'width' | 'bar' | 'indent'
-
-function RankRow({
-  row,
-  rank,
-  mode,
-}: {
-  row: Row
-  rank: number
-  mode: LengthMode
-}) {
+function RankRow({ row, rank }: { row: Row; rank: number }) {
   const unmeasured = row.picks === 0
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
-  const length = lengthPercent(row)
-
-  const outerStyle: React.CSSProperties = {
-    flexGrow: 1,
-    flexBasis: 0,
-    minHeight: 48,
-    backgroundColor: unmeasured ? undefined : scoreColor(row.score, TINT),
-  }
-  if (!unmeasured && mode === 'width') outerStyle.width = `${length}%`
-  if (!unmeasured && mode === 'indent') {
-    outerStyle.marginLeft = `${100 - length}%`
-  }
 
   return (
     <div
-      className={`flex flex-col justify-center overflow-hidden rounded-lg border p-2 shadow-sm ${
+      className={`flex shrink-0 items-center gap-2 overflow-hidden rounded-lg border p-2 shadow-sm ${
         unmeasured
           ? 'border-slate-200/60 bg-slate-100/80'
           : `border-slate-200/80 ${rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''}`
       }`}
-      style={outerStyle}
+      style={{
+        height: 48,
+        backgroundColor: unmeasured ? undefined : scoreColor(row.score, TINT),
+      }}
     >
-      <div className='flex items-center gap-2'>
-        <div className='w-8 shrink-0 text-center'>
-          {medal && !unmeasured ? (
-            <span className='text-xl'>{medal}</span>
-          ) : (
-            <span
-              className={`text-sm font-semibold ${
-                unmeasured ? 'text-slate-300' : 'text-slate-500'
-              }`}
-            >
-              #{rank}
-            </span>
-          )}
-        </div>
-
-        <div
-          className={`h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100/80 ${
-            unmeasured ? 'opacity-60' : ''
-          }`}
-        >
-          <TrackArtwork src={row.cover} alt={row.title} />
-        </div>
-
-        <div className='min-w-0 flex-1'>
-          <h4
-            className={`truncate text-sm leading-tight font-semibold ${
-              unmeasured ? 'text-slate-400' : 'text-slate-900'
+      <div className='w-8 shrink-0 text-center'>
+        {medal && !unmeasured ? (
+          <span className='text-xl'>{medal}</span>
+        ) : (
+          <span
+            className={`text-sm font-semibold ${
+              unmeasured ? 'text-slate-300' : 'text-slate-500'
             }`}
           >
-            {row.title}
-          </h4>
-          <p
-            className={`truncate text-xs leading-tight ${
-              unmeasured ? 'text-slate-400' : 'text-slate-600'
-            }`}
-          >
-            {row.artist}
-          </p>
-        </div>
-
-        <div className='shrink-0 text-right'>
-          <div
-            className={`text-xs font-bold ${
-              unmeasured ? 'text-slate-300' : 'text-slate-700'
-            }`}
-          >
-            {unmeasured ? '–' : row.score.toFixed(2)}
-          </div>
-        </div>
+            #{rank}
+          </span>
+        )}
       </div>
 
-      {mode === 'bar' && !unmeasured && (
-        <div className='mt-1.5 h-0.5 w-full rounded-full bg-slate-900/10'>
-          <div
-            className='h-0.5 rounded-full bg-slate-900/30'
-            style={{ width: `${length}%` }}
-          />
+      <div
+        className={`h-8 w-8 shrink-0 overflow-hidden rounded bg-slate-100/80 ${
+          unmeasured ? 'opacity-60' : ''
+        }`}
+      >
+        <TrackArtwork src={row.cover} alt={row.title} />
+      </div>
+
+      <div className='min-w-0 flex-1'>
+        <h4
+          className={`truncate text-sm leading-tight font-semibold ${
+            unmeasured ? 'text-slate-400' : 'text-slate-900'
+          }`}
+        >
+          {row.title}
+        </h4>
+        <p
+          className={`truncate text-xs leading-tight ${
+            unmeasured ? 'text-slate-400' : 'text-slate-600'
+          }`}
+        >
+          {row.artist}
+        </p>
+      </div>
+
+      <div className='shrink-0 text-right'>
+        <div
+          className={`text-xs font-bold ${
+            unmeasured ? 'text-slate-300' : 'text-slate-700'
+          }`}
+        >
+          {unmeasured ? '–' : row.score.toFixed(2)}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-function Sidebar({ label, mode }: { label: string; mode: LengthMode }) {
+function Sidebar({ label, size }: { label: string; size: number }) {
+  const rows = buildRows(size)
+  const bands = bandFlags(rows)
+
   return (
     <div className='flex h-full min-w-0 flex-col overflow-hidden border-l border-slate-200/80 bg-white/70 backdrop-blur-md'>
       <div className='border-b border-slate-200 p-4'>
@@ -190,18 +182,18 @@ function Sidebar({ label, mode }: { label: string; mode: LengthMode }) {
           <Trophy size={20} className='text-amber-500' />
           <h3 className='text-lg font-bold'>Current Rankings</h3>
         </div>
-        <p className='text-sm text-slate-500'>9 comparisons</p>
+        <p className='text-sm text-slate-500'>{size} songs</p>
       </div>
 
-      <div className='flex min-h-0 flex-1 flex-col gap-1.5 p-3'>
-        {ROWS.map((row, i) => (
+      <div className='flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3'>
+        {rows.map((row, i) => (
           <div key={row.title} className='contents'>
-            {startsBand(i) && (
-              <div className='flex shrink-0 items-center' style={{ height: 14 }}>
+            {bands[i] && (
+              <div className='flex shrink-0 items-center' style={{ height: 12 }}>
                 <div className='h-px w-full bg-slate-300' />
               </div>
             )}
-            <RankRow row={row} rank={i + 1} mode={mode} />
+            <RankRow row={row} rank={i + 1} />
           </div>
         ))}
       </div>
@@ -216,9 +208,9 @@ function Sidebar({ label, mode }: { label: string; mode: LengthMode }) {
 export default function GapsDemoPage() {
   return (
     <main className='grid h-screen grid-cols-3 bg-gradient-to-b from-white to-sky-50 text-slate-900'>
-      <Sidebar label='width' mode='width' />
-      <Sidebar label='bar' mode='bar' />
-      <Sidebar label='indent' mode='indent' />
+      <Sidebar label='5' size={5} />
+      <Sidebar label='10' size={10} />
+      <Sidebar label='20' size={20} />
     </main>
   )
 }
