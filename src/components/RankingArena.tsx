@@ -692,7 +692,7 @@ export default function RankingArena() {
 
         {/* Pause Overlay */}
         {showPause && (
-          <div className='absolute inset-0 bg-slate-900/30 backdrop-blur-sm z-40 flex items-center justify-center'>
+          <div className='absolute inset-0 bg-slate-900/30 backdrop-blur-sm z-[60] flex items-center justify-center'>
             <div className='bg-white/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-200 shadow-xl'>
               <h2 className='text-2xl font-bold text-slate-900 mb-4'>Paused</h2>
               <p className='text-slate-600 mb-6'>
