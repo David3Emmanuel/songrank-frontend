@@ -5,6 +5,8 @@ import {
   CARD_DIMENSIONS,
   cardLayout,
   layoutBottom,
+  podiumWidth,
+  RUNNER_COVER_RATIO,
 } from '../src/lib/shareLayout.ts'
 
 const FORMATS = ['9:16', '1:1', '16:9']
@@ -24,17 +26,29 @@ test('a card of three has no rows below the podium', () => {
   }
 })
 
-test('every format can hold every count without running off the bottom', () => {
+test('nothing runs off the bottom, in any shape or length', () => {
   for (const format of FORMATS) {
     for (const count of COUNTS) {
       const layout = cardLayout(format, count)
-      const bottom = layoutBottom(layout)
-
       assert.ok(
-        bottom <= layout.footerY,
+        layoutBottom(layout) <= layout.footerY,
         `${format} with ${count} songs reached the footer`,
       )
       assert.equal(layout.rowCount, Math.max(0, count - 3))
+    }
+  }
+})
+
+test('the podium fits across the card, which bounds the cover too', () => {
+  for (const format of FORMATS) {
+    for (const count of COUNTS) {
+      const layout = cardLayout(format, count)
+      const usable = layout.width - layout.marginX * 2
+
+      assert.ok(
+        podiumWidth(layout) <= usable,
+        `${format} with ${count} songs pushed the podium off the sides`,
+      )
     }
   }
 })
@@ -45,28 +59,72 @@ test('rows stay legible and never stretch', () => {
       const layout = cardLayout(format, count)
       if (layout.rowCount === 0) continue
 
-      const smallest = layout.height * 0.05
-      const largest = layout.height * 0.09
       assert.ok(
-        layout.rowHeight >= Math.floor(smallest),
+        layout.rowHeight >= Math.floor(layout.height * 0.05),
         `${format} with ${count} songs made rows too small`,
       )
       assert.ok(
-        layout.rowHeight <= Math.ceil(largest),
+        layout.rowHeight <= Math.ceil(layout.height * 0.09),
         `${format} with ${count} songs stretched the rows`,
       )
-      assert.ok(layout.rowArt > 0, 'a row needs a cover')
-      assert.ok(layout.rowArt < layout.rowHeight, 'a cover must fit its row')
+      assert.ok(
+        layout.rowArt > 0 && layout.rowArt < layout.rowHeight,
+        'a cover must fit inside its row',
+      )
     }
   }
 })
 
-test('more songs means tighter rows, up to the floor', () => {
-  const five = cardLayout('1:1', 5)
-  const ten = cardLayout('1:1', 10)
-  assert.ok(ten.rowHeight <= five.rowHeight)
-  assert.equal(five.rowCount, 2)
-  assert.equal(ten.rowCount, 7)
+test('fewer songs means a bigger podium, not a smaller one', () => {
+  for (const format of FORMATS) {
+    const three = cardLayout(format, 3)
+    const five = cardLayout(format, 5)
+    const ten = cardLayout(format, 10)
+
+    assert.ok(
+      three.podiumCover >= five.podiumCover,
+      `${format}: three songs should not have a smaller podium than five`,
+    )
+    assert.ok(five.podiumCover >= ten.podiumCover, `${format}: five against ten`)
+    // And it should be worth looking at, not a thumbnail.
+    assert.ok(
+      three.podiumCover >= Math.min(three.height * 0.28, three.width * 0.3),
+      `${format}: the podium on a three song card is too small`,
+    )
+  }
+})
+
+test('the content is centred rather than pinned under the header', () => {
+  for (const format of FORMATS) {
+    for (const count of COUNTS) {
+      const layout = cardLayout(format, count)
+      const regionTop = Math.round(layout.height * 0.2)
+      const above = layout.podiumTop - regionTop
+      const below = layout.footerY - layoutBottom(layout)
+
+      assert.ok(above >= 0, `${format}/${count}: content went above the region`)
+      assert.ok(
+        Math.abs(above - below) <= 2,
+        `${format} with ${count} songs is not centred: ${above} above, ${below} below`,
+      )
+    }
+  }
+})
+
+test('a three song card uses most of the height it has', () => {
+  for (const format of FORMATS) {
+    const layout = cardLayout(format, 3)
+    const region = layout.footerY - Math.round(layout.height * 0.2)
+    const used = layoutBottom(layout) - layout.podiumTop
+    assert.ok(
+      used >= region * 0.5,
+      `${format}: only ${Math.round((used / region) * 100)}% of the space is used`,
+    )
+  }
+})
+
+test('the runner up covers are sized as a ratio of the winner', () => {
+  assert.ok(RUNNER_COVER_RATIO > 0 && RUNNER_COVER_RATIO < 1)
 })
 
 test('a story has room for taller rows than a square', () => {

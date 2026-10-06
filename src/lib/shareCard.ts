@@ -154,6 +154,14 @@ export async function generateShareCard({
     rowArt,
     rowGap,
     rowsTop,
+    runnerCover,
+    podiumStacked,
+    podiumColumnGap,
+    podiumRunnerTop,
+    podiumDurationY,
+    runnerTitleY,
+    runnerArtistY,
+    runnerDurationY,
   } = layout
   const podiumText = layout.podiumTextBlock
 
@@ -189,61 +197,126 @@ export async function generateShareCard({
   // Covers up front, in parallel: one round trip rather than one per song.
   const covers = await Promise.all(shown.map((track) => loadCover(track)))
 
-  // Podium: second and third flank the winner, as they do on the screen.
+  // Podium. Across on a square or wide card, with second and third flanking the
+  // winner; stacked on a tall card, since three squares across a 1080 wide story
+  // leave most of the height empty.
   const columns = [2, 1, 3].filter((place) => place <= podium.length)
-  if (columns.length > 0) {
-    const gap = tall ? 40 : 30
-    const widths = columns.map((place) =>
-      place === 1 ? podiumCover : Math.round(podiumCover * 0.78),
+  const badge = (place: number, cx: number, cy: number) => {
+    const radius = tall ? 26 : 22
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+    ctx.fillStyle = PLACE_COLOURS[place - 1] ?? '#64748b'
+    ctx.fill()
+
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `bold ${tall ? 30 : 26}px system-ui, sans-serif`
+    ctx.fillText(String(place), cx, cy + (tall ? 11 : 9))
+  }
+
+  const caption = (
+    track: Track | undefined,
+    cx: number,
+    titleY: number,
+    artistY: number,
+    durationY: number,
+    maxWidth: number,
+  ) => {
+    if (!track) return
+
+    ctx.textAlign = 'center'
+    ctx.fillStyle = colours.text
+    ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
+    ctx.fillText(truncate(ctx, track.title, maxWidth), cx, titleY)
+
+    ctx.fillStyle = colours.muted
+    ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
+    ctx.fillText(truncate(ctx, track.artist, maxWidth), cx, artistY)
+
+    const length = formatDurationMs(track.durationMs)
+    if (length) {
+      ctx.font = `${tall ? 24 : 20}px system-ui, sans-serif`
+      ctx.fillText(length, cx, durationY)
+    }
+  }
+
+  if (columns.length > 0 && podiumStacked) {
+    // Winner above, runners beneath.
+    const winnerX = (width - podiumCover) / 2
+    drawCover(ctx, covers[0] ?? null, winnerX, podiumTop, podiumCover, 22, colours.border)
+    badge(1, width / 2, podiumTop - (tall ? 18 : 14))
+    caption(
+      podium[0],
+      width / 2,
+      podiumTitleY,
+      podiumArtistY,
+      podiumDurationY,
+      width - marginX * 2,
     )
-    const totalWidth = widths.reduce((sum, w) => sum + w, 0) + gap * (columns.length - 1)
+
+    const runners = [2, 3].filter((place) => place <= podium.length)
+    const runnerTotal =
+      runners.length * runnerCover + Math.max(0, runners.length - 1) * podiumColumnGap
+    let x = (width - runnerTotal) / 2
+
+    runners.forEach((place) => {
+      drawCover(
+        ctx,
+        covers[place - 1] ?? null,
+        x,
+        podiumRunnerTop,
+        runnerCover,
+        18,
+        colours.border,
+      )
+      badge(place, x + runnerCover / 2, podiumRunnerTop - (tall ? 18 : 14))
+      caption(
+        podium[place - 1],
+        x + runnerCover / 2,
+        runnerTitleY,
+        runnerArtistY,
+        runnerDurationY,
+        runnerCover + 40,
+      )
+      x += runnerCover + podiumColumnGap
+    })
+  } else if (columns.length > 0) {
+    const widths = columns.map((place) =>
+      place === 1 ? podiumCover : runnerCover,
+    )
+    const totalWidth =
+      widths.reduce((sum, w) => sum + w, 0) +
+      podiumColumnGap * (columns.length - 1)
     let x = (width - totalWidth) / 2
 
     columns.forEach((place, index) => {
       const track = podium[place - 1]
       const cover = covers[place - 1] ?? null
       const columnWidth = widths[index]
-      const coverSize = place === 1 ? podiumCover : Math.round(podiumCover * 0.78)
+      const coverSize = place === 1 ? podiumCover : runnerCover
       const coverX = x + (columnWidth - coverSize) / 2
       const coverY = podiumTop + (podiumCover - coverSize)
 
-      // Cover
-      drawCover(ctx, cover, coverX, coverY, coverSize, tall ? 20 : 16, colours.border)
+      drawCover(
+        ctx,
+        cover,
+        coverX,
+        coverY,
+        coverSize,
+        tall ? 20 : 16,
+        colours.border,
+      )
+      badge(place, coverX + coverSize / 2, coverY - (tall ? 18 : 14))
+      caption(
+        track,
+        x + columnWidth / 2,
+        podiumTitleY,
+        podiumArtistY,
+        podiumDurationY,
+        columnWidth + 20,
+      )
 
-      // Place badge, straddling the top edge of the cover
-      const badgeRadius = tall ? 26 : 22
-      const badgeX = coverX + coverSize / 2
-      const badgeY = coverY - badgeRadius + 8
-      ctx.beginPath()
-      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
-      ctx.fillStyle = PLACE_COLOURS[place - 1] ?? '#64748b'
-      ctx.fill()
-
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${tall ? 30 : 26}px system-ui, sans-serif`
-      ctx.fillText(String(place), badgeX, badgeY + (tall ? 11 : 9))
-
-      // Title and artist
-      if (track) {
-        ctx.fillStyle = colours.text
-        ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
-        ctx.fillText(
-          truncate(ctx, track.title, columnWidth + 20),
-          x + columnWidth / 2,
-          podiumTitleY,
-        )
-
-        ctx.fillStyle = colours.muted
-        ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
-        ctx.fillText(
-          truncate(ctx, track.artist, columnWidth + 20),
-          x + columnWidth / 2,
-          podiumArtistY,
-        )
-      }
-
-      x += columnWidth + gap
+      x += columnWidth + podiumColumnGap
     })
   }
 
