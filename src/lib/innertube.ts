@@ -135,7 +135,10 @@ export function parseSubtitle(text: string): ParsedSubtitle {
     durationMs: 0,
   }
 
-  if (parts.length > 0 && /^(song|video|album|artist|playlist|ep)$/i.test(parts[0])) {
+  if (
+    parts.length > 0 &&
+    /^(song|video|album|single|artist|playlist|ep)$/i.test(parts[0])
+  ) {
     result.kind = parts[0]
     parts.shift()
   }
@@ -154,17 +157,47 @@ export function parseSubtitle(text: string): ParsedSubtitle {
   return result
 }
 
-/** The runs of one column, joined back into the line the player shows. */
-function columnText(column: Node): string {
+/** The runs of one column, as nodes, for reading both their text and their links. */
+function runsOf(column: Node): Node[] {
   const renderer = asNode(column.musicResponsiveListItemFlexColumnRenderer)
   const text = asNode(renderer?.text)
   const runs = Array.isArray(text?.runs) ? (text.runs as unknown[]) : []
-  return runs
-    .map((run) => {
-      const value = asNode(run)?.text
-      return typeof value === 'string' ? value : ''
-    })
+  return runs.map((run) => asNode(run) ?? {})
+}
+
+/** The runs of one column, joined back into the line the player shows. */
+function columnText(column: Node): string {
+  return runsOf(column)
+    .map((run) => (typeof run.text === 'string' ? run.text : ''))
     .join('')
+}
+
+/** The page type a run's own link points at. */
+function runPageType(run: Node): string {
+  const endpoint = asNode(run.navigationEndpoint)
+  const browse = asNode(endpoint?.browseEndpoint)
+  const configs = asNode(browse?.browseEndpointContextSupportedConfigs)
+  const music = asNode(configs?.browseEndpointContextMusicConfig)
+  const value = music?.pageType
+  return typeof value === 'string' ? value : ''
+}
+
+/**
+ * The artist a row links to.
+ *
+ * A song row often states only its length, so its subtitle never names the
+ * artist. The row still links to the artist's page from one of its runs, which is
+ * both a better answer than a placeholder and the entity itself.
+ */
+function artistFromRow(columns: Node[]): string {
+  for (const column of columns.slice(0, 2)) {
+    for (const run of runsOf(column)) {
+      if (runPageType(run) !== 'MUSIC_PAGE_TYPE_ARTIST') continue
+      const text = typeof run.text === 'string' ? run.text.trim() : ''
+      if (text) return text
+    }
+  }
+  return ''
 }
 
 function coverFrom(row: Node): string | undefined {
@@ -184,14 +217,93 @@ function coverFrom(row: Node): string | undefined {
 }
 
 /**
- * One song per row, in the order YouTube Music ranked them.
+ * One row of a search response, as whatever kind of thing it is.
  *
- * Rows that are albums, artists or playlists use a different renderer and are
- * left out, as is any row without a video id, since there would be nothing to
- * play.
+ * A search result is not a list of songs with some junk in it: it is a list of
+ * entities. An album, a single, an artist and a playlist each arrive as their own
+ * kind, with a browse id rather than a video id, and dropping them loses the most
+ * useful thing a search can return.
  */
-export function parseSearchSongs(payload: unknown): MusicSearchSong[] {
-  const songs: MusicSearchSong[] = []
+export type MusicEntityKind =
+  | 'song'
+  | 'video'
+  | 'album'
+  | 'single'
+  | 'artist'
+  | 'playlist'
+
+export interface MusicSearchEntity {
+  kind: MusicEntityKind
+  /** A video id for a song, a browse id for every other kind. */
+  id: string
+  title: string
+  artist: string
+  album: string
+  /** The release year a row stated, when it stated one. */
+  year: string
+  /** The row's own subtitle line, for anything the fields above do not cover. */
+  detail: string
+  durationMs: number
+  coverImage?: string
+  videoType?: string
+}
+
+/** The page type an entity row declares about itself. */
+function pageTypeOf(row: Node): string {
+  const nav = asNode(row.navigationEndpoint)
+  const browse = asNode(nav?.browseEndpoint)
+  const configs = asNode(browse?.browseEndpointContextSupportedConfigs)
+  const music = asNode(configs?.browseEndpointContextMusicConfig)
+  const value = music?.pageType
+  return typeof value === 'string' ? value : ''
+}
+
+function browseIdOf(row: Node): string {
+  const nav = asNode(row.navigationEndpoint)
+  const browse = asNode(nav?.browseEndpoint)
+  const value = browse?.browseId
+  return typeof value === 'string' ? value : ''
+}
+
+/** The four digit year a row mentions, if it mentions one. */
+function yearIn(text: string): string {
+  const match = /(?:^|\s)(\d{4})(?:\s|$)/.exec(text)
+  return match ? match[1] : ''
+}
+
+/**
+ * What kind of thing a row is.
+ *
+ * The page type is the authority, and the subtitle only splits albums from
+ * singles, which share a shape and differ by that one word.
+ */
+export function kindForRow(
+  pageType: string,
+  subtitleKind: string,
+): MusicEntityKind | null {
+  const said = subtitleKind.toLowerCase()
+
+  if (pageType === 'MUSIC_PAGE_TYPE_ALBUM') {
+    return said === 'single' ? 'single' : 'album'
+  }
+  if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') return 'artist'
+  if (pageType === 'MUSIC_PAGE_TYPE_PLAYLIST') return 'playlist'
+  // Credits pages, podcast shows and channels are real pages but not something
+  // anybody wants to add to a ranking.
+  if (pageType) return null
+
+  return said === 'video' ? 'video' : 'song'
+}
+
+/**
+ * Every row of a search response, typed, in the order YouTube Music ranked them.
+ *
+ * A row that carries a video id and names no page type is a song: it can be
+ * played, whatever else it links to. Everything else is an entity, and needs both
+ * a page type and a browse id to be worth returning.
+ */
+export function parseSearchEntities(payload: unknown): MusicSearchEntity[] {
+  const entities: MusicSearchEntity[] = []
 
   for (const row of collect(payload, SONG_ROW)) {
     const columns = Array.isArray(row.flexColumns)
@@ -201,22 +313,69 @@ export function parseSearchSongs(payload: unknown): MusicSearchSong[] {
     const title = columnText(columns[0] ?? {}).trim()
     if (!title) continue
 
-    const videoId = findValue(columns[0], 'videoId')
-    if (typeof videoId !== 'string' || !videoId) continue
-
+    const detail = columnText(columns[1] ?? {}).trim()
+    const subtitle = parseSubtitle(detail)
     const videoType = findValue(columns[0], 'musicVideoType')
-    const subtitle = parseSubtitle(columnText(columns[1] ?? {}))
+    const pageType = pageTypeOf(row)
+    const videoId = findValue(columns[0], 'videoId')
 
-    songs.push({
-      videoId,
+    if (!pageType && typeof videoId === 'string' && videoId) {
+      entities.push({
+        kind: subtitle.kind.toLowerCase() === 'video' ? 'video' : 'song',
+        id: videoId,
+        title,
+        // Empty rather than a placeholder when the row names nobody: the caller
+        // can still find the artist from the video, and a placeholder cannot be
+        // told apart from a real name.
+        artist: artistFromRow(columns) || subtitle.artist,
+        album: subtitle.album,
+        year: '',
+        detail,
+        durationMs: subtitle.durationMs,
+        coverImage: coverFrom(row),
+        videoType: typeof videoType === 'string' ? videoType : undefined,
+      })
+      continue
+    }
+
+    const kind = kindForRow(pageType, subtitle.kind)
+    const browseId = browseIdOf(row)
+    if (!kind || !browseId) continue
+
+    entities.push({
+      kind,
+      id: browseId,
       title,
-      artist: subtitle.artist || 'Unknown Artist',
-      album: subtitle.album,
+      // An artist row's second column is an audience figure, not an artist, and a
+      // playlist's is whoever made it, so neither is read as the artist.
+      artist: kind === 'artist' || kind === 'playlist' ? '' : subtitle.artist,
+      album: '',
+      year: yearIn(detail),
+      detail,
       durationMs: subtitle.durationMs,
       coverImage: coverFrom(row),
-      videoType: typeof videoType === 'string' ? videoType : undefined,
     })
   }
 
-  return songs
+  return entities
+}
+
+/**
+ * One song per row, in the order YouTube Music ranked them.
+ *
+ * Everything that is not a song or a video is left out, since there would be
+ * nothing to play, as is any row without a video id.
+ */
+export function parseSearchSongs(payload: unknown): MusicSearchSong[] {
+  return parseSearchEntities(payload)
+    .filter((entity) => entity.kind === 'song' || entity.kind === 'video')
+    .map((entity) => ({
+      videoId: entity.id,
+      title: entity.title,
+      artist: entity.artist || 'Unknown Artist',
+      album: entity.album,
+      durationMs: entity.durationMs,
+      coverImage: entity.coverImage,
+      videoType: entity.videoType,
+    }))
 }

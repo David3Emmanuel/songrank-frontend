@@ -25,6 +25,7 @@ interface VideosListResponse {
   items?: Array<{
     id: string
     contentDetails?: { duration?: string }
+    snippet?: { channelTitle?: string }
   }>
 }
 
@@ -189,7 +190,7 @@ export class YouTubeAdapter {  private apiKey: string
     // Lengths live on the video, not on the playlist item, so they need one more
     // call: 1 quota unit per 50 tracks.
     const videoIds = items.map((item) => item.contentDetails.videoId)
-    const durations = await this.fetchDurations(videoIds)
+    const details = await this.fetchVideoDetails(videoIds)
 
     const playlist = playlistData.items[0]
     const tracks: Track[] =
@@ -198,7 +199,7 @@ export class YouTubeAdapter {  private apiKey: string
         title: decodeHtmlEntities(item.snippet.title),
         artist: artistFromChannelTitle(item.snippet.videoOwnerChannelTitle),
         album: '',
-        durationMs: durations.get(item.contentDetails.videoId) ?? 0,
+        durationMs: details.get(item.contentDetails.videoId)?.durationMs ?? 0,
         coverImage:
           item.snippet.thumbnails?.maxres?.url ||
           item.snippet.thumbnails?.high?.url ||
@@ -254,7 +255,7 @@ export class YouTubeAdapter {  private apiKey: string
       (item): item is typeof item & { id: { videoId: string } } =>
         Boolean(item.id?.videoId),
     )
-    const durations = await this.fetchDurations(found.map((item) => item.id.videoId))
+    const details = await this.fetchVideoDetails(found.map((item) => item.id.videoId))
 
     // YouTube returns uploads, not songs: the same track arrives as the official
     // video, the audio, a lyric reupload. Collapsed here so nobody is asked to
@@ -264,7 +265,7 @@ export class YouTubeAdapter {  private apiKey: string
         id: item.id.videoId,
         title: decodeHtmlEntities(item.snippet.title),
         channelTitle: item.snippet.channelTitle,
-        durationMs: durations.get(item.id.videoId) ?? 0,
+        durationMs: details.get(item.id.videoId)?.durationMs ?? 0,
         coverImage: smallerThumbnailUrl(
           item.snippet.thumbnails?.high?.url ||
             item.snippet.thumbnails?.default?.url,
@@ -298,56 +299,74 @@ export class YouTubeAdapter {  private apiKey: string
   }
 
   /**
-   * Fills in track lengths for tracks that came from somewhere else.
+   * Fills in what a track is missing from somewhere else.
    *
    * YouTube Music's search endpoint carries a length on almost none of its rows,
-   * so when an API key happens to be configured the Data API is asked instead.
-   * One unit per fifty tracks, against a hundred for a search, and tracks keep
-   * their blank length rather than failing if the call does not work.
+   * and occasionally names nobody at all: a row can read "Song • 4:22" with the
+   * artist only present as a link. The video itself always knows both, so when an
+   * API key happens to be configured the Data API is asked. One unit per fifty
+   * tracks, against a hundred for a search, and a track keeps its blank length or
+   * its placeholder rather than failing if the call does not work.
    */
-  async fillDurations(tracks: Track[]): Promise<Track[]> {
-    const missing = tracks.filter((track) => !track.durationMs)
+  async fillDetails(tracks: Track[]): Promise<Track[]> {
+    const missing = tracks.filter(
+      (track) => !track.durationMs || !track.artist || track.artist === 'Unknown Artist',
+    )
     if (missing.length === 0) return tracks
 
-    const durations = await this.fetchDurations(missing.map((track) => track.id))
-    if (durations.size === 0) return tracks
+    const details = await this.fetchVideoDetails(missing.map((track) => track.id))
+    if (details.size === 0) return tracks
 
-    return tracks.map((track) =>
-      track.durationMs
+    return tracks.map((track) => {
+      const found = details.get(track.id)
+      if (!found) return track
+
+      const named =
+        track.artist && track.artist !== 'Unknown Artist'
+          ? track.artist
+          : found.artist || track.artist
+      const durationMs = track.durationMs || found.durationMs
+
+      return named === track.artist && durationMs === track.durationMs
         ? track
-        : { ...track, durationMs: durations.get(track.id) ?? 0 },
-    )
+        : { ...track, artist: named, durationMs }
+    })
   }
 
   /**
-   * Durations for a list of videos, keyed by id, in batches of 50.
+   * Lengths and channel names for a list of videos, keyed by id, in batches of 50.
    *
-   * A failed batch leaves those tracks at 0 rather than failing the import:
-   * lengths improve the ranking screen, they are not what the user asked for.
+   * A failed batch leaves those tracks as they were rather than failing the
+   * import: a length improves the ranking screen, it is not what was asked for.
    */
-  private async fetchDurations(videoIds: string[]): Promise<Map<string, number>> {
-    const durations = new Map<string, number>()
+  private async fetchVideoDetails(
+    videoIds: string[],
+  ): Promise<Map<string, { durationMs: number; artist: string }>> {
+    const details = new Map<string, { durationMs: number; artist: string }>()
 
     for (const batch of chunkIds(videoIds, 50)) {
       try {
         const res = await fetch(
           `https://www.googleapis.com/youtube/v3/videos?` +
             new URLSearchParams({
-              part: 'contentDetails',
+              part: 'contentDetails,snippet',
               id: batch.join(','),
               key: this.apiKey,
             }),
         )
         const data = (await res.json()) as VideosListResponse
         for (const item of data.items ?? []) {
-          durations.set(item.id, parseIsoDurationMs(item.contentDetails?.duration))
+          details.set(item.id, {
+            durationMs: parseIsoDurationMs(item.contentDetails?.duration),
+            artist: artistFromChannelTitle(item.snippet?.channelTitle ?? ''),
+          })
         }
       } catch {
-        // Leave this batch at 0 and carry on.
+        // Leave this batch as it was and carry on.
       }
     }
 
-    return durations
+    return details
   }
 
   async createPlaylist(title: string, description: string): Promise<string> {

@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs'
 import {
   MUSIC_CLIENT,
   OFFICIAL_VIDEO_TYPES,
+  kindForRow,
   parseDurationText,
+  parseSearchEntities,
   parseSearchSongs,
   parseSubtitle,
 } from '../src/lib/innertube.ts'
@@ -114,4 +116,107 @@ test('a row with no video id is skipped rather than shown unplayable', () => {
     },
   }
   assert.deepEqual(parseSearchSongs(payload), [])
+})
+
+// Five rows from a real response to a search for "Kendrick Lamar", one of each
+// shape a result list mixes: a song, an album, an artist, a playlist and a single.
+const entityFixture = JSON.parse(
+  readFileSync(
+    new URL('./fixtures/innertube-search-entities.json', import.meta.url),
+    'utf8',
+  ),
+)
+
+test('a result list is typed, not just songs', () => {
+  const entities = parseSearchEntities(entityFixture)
+  assert.deepEqual(
+    entities.map((entity) => entity.kind),
+    ['song', 'album', 'artist', 'playlist', 'single'],
+  )
+})
+
+test('an album carries its artist, its year and a browse id', () => {
+  const album = parseSearchEntities(entityFixture).find(
+    (entity) => entity.kind === 'album',
+  )
+  assert.ok(album.id.startsWith('MPREb_'), 'an album is identified by a browse id')
+  assert.equal(album.title, 'GNX')
+  assert.equal(album.artist, 'Kendrick Lamar')
+  assert.equal(album.year, '2024')
+  assert.ok(album.coverImage, 'an album row has artwork')
+})
+
+test('a single shares the album shape and is told apart by its own word', () => {
+  const single = parseSearchEntities(entityFixture).find(
+    (entity) => entity.kind === 'single',
+  )
+  assert.ok(single.id.startsWith('MPREb_'))
+  assert.equal(single.artist, 'Kendrick Lamar')
+  assert.equal(single.year, '2011')
+})
+
+test('an artist row is not read as if it named an artist', () => {
+  const artist = parseSearchEntities(entityFixture).find(
+    (entity) => entity.kind === 'artist',
+  )
+  assert.ok(artist.id.startsWith('UC'), 'an artist is identified by a channel id')
+  assert.equal(artist.title, 'J. Cole')
+  // Its second column is an audience figure, which is not an artist's name.
+  assert.equal(artist.artist, '')
+  assert.match(artist.detail, /monthly audience/)
+})
+
+test('a playlist row keeps its creator out of the artist field', () => {
+  const playlist = parseSearchEntities(entityFixture).find(
+    (entity) => entity.kind === 'playlist',
+  )
+  assert.ok(playlist.id.startsWith('VL'))
+  assert.equal(playlist.artist, '')
+})
+
+test('a song row that names nobody says so, rather than inventing a name', () => {
+  const song = parseSearchEntities(entityFixture).find(
+    (entity) => entity.kind === 'song',
+  )
+  assert.equal(song.artist, '')
+  assert.match(song.detail, /Song/)
+  // Parsed as a song, it still reaches the import with a placeholder.
+  const parsed = parseSearchSongs(entityFixture)
+  assert.equal(parsed[0].artist, 'Unknown Artist')
+})
+
+test('the page type decides what a row is, and the subtitle only splits albums', () => {
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_ALBUM', 'Album'), 'album')
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_ALBUM', 'Single'), 'single')
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_ARTIST', 'Artist'), 'artist')
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_PLAYLIST', 'Playlist'), 'playlist')
+  assert.equal(kindForRow('', 'Song'), 'song')
+  assert.equal(kindForRow('', 'Video'), 'video')
+  // Credits pages and podcast shows are pages, but nothing to add to a ranking.
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_TRACK_CREDITS', 'Song'), null)
+  assert.equal(kindForRow('MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE', 'Show'), null)
+})
+
+test('an entity row without a browse id is dropped rather than shown dead', () => {
+  const payload = {
+    musicResponsiveListItemRenderer: {
+      navigationEndpoint: {
+        browseEndpoint: {
+          browseEndpointContextSupportedConfigs: {
+            browseEndpointContextMusicConfig: {
+              pageType: 'MUSIC_PAGE_TYPE_ALBUM',
+            },
+          },
+        },
+      },
+      flexColumns: [
+        {
+          musicResponsiveListItemFlexColumnRenderer: {
+            text: { runs: [{ text: 'An album with nowhere to go' }] },
+          },
+        },
+      ],
+    },
+  }
+  assert.deepEqual(parseSearchEntities(payload), [])
 })
