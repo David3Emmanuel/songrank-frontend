@@ -58,20 +58,6 @@ const PREVIEW_TRACKS: Track[] = SONGS.map(([title, artist, durationMs], i) => ({
 const SHAPES: Array<ShareCardConfig['format']> = ['1:1', '9:16', '16:9']
 const COUNTS = [3, 5, 10]
 
-/**
- * The densest card, drawn three ways, so the row treatment can be chosen against
- * itself rather than in isolation. The extra two are temporary.
- */
-const VARIANTS: Array<{
-  key: string
-  label: string
-  rowText?: 'stacked' | 'inline'
-  rowTitleScale?: number
-}> = [
-  { key: '1:1-10', label: '1:1 · top 10 · artist under' },
-  { key: '1:1-10-inline', label: '1:1 · top 10 · artist right', rowText: 'inline' },
-  { key: '1:1-10-small', label: '1:1 · top 10 · smaller title', rowTitleScale: 0.78 },
-]
 
 export default function SharePreviewPage() {
   const [cards, setCards] = useState<Record<string, string>>({})
@@ -107,31 +93,7 @@ export default function SharePreviewPage() {
         }
       }
 
-      // The densest card again, drawn the other two ways.
-      for (const variant of VARIANTS) {
-        if (cancelled) return
 
-        try {
-          const blob = await generateShareCard({
-            tracks: PREVIEW_TRACKS,
-            playlistName: 'Preview Mix',
-            totalSongs: PREVIEW_TRACKS.length,
-            config: { top_n: 10, theme: 'light', format: '1:1' },
-            rowText: variant.rowText,
-            rowTitleScale: variant.rowTitleScale,
-          })
-          if (cancelled) return
-
-          const url = URL.createObjectURL(blob)
-          made.push(url)
-          setCards((current) => ({ ...current, [variant.key]: url }))
-        } catch (err) {
-          if (!cancelled) {
-            setError(err instanceof Error ? err.message : 'Could not draw it')
-          }
-          return
-        }
-      }
     }
 
     void run()
@@ -173,35 +135,6 @@ export default function SharePreviewPage() {
             )
           }),
         )}
-      </div>
-
-      {/* The same card, three ways, to choose the row treatment against itself */}
-      <div className='mx-auto mt-3 grid max-w-[1100px] grid-cols-3 gap-3'>
-        {VARIANTS.map((variant) => {
-          const url = cards[variant.key]
-
-          return (
-            <div
-              key={variant.key}
-              className='flex flex-col items-center gap-1.5 rounded-xl border border-slate-300 bg-white p-2'
-            >
-              <p className='text-[11px] font-medium text-slate-500'>
-                {variant.label}
-              </p>
-              {url ? (
-                <img
-                  src={url}
-                  alt={variant.label}
-                  className='h-[210px] w-auto rounded-md border border-slate-200'
-                />
-              ) : (
-                <div className='flex h-[210px] w-[140px] items-center justify-center text-slate-300'>
-                  <Loader2 size={20} className='animate-spin' />
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
 
       {error && (
