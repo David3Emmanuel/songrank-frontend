@@ -28,7 +28,7 @@ import {
 } from '../lib/playerSlots'
 import type { Track } from '../lib/types'
 import { sessionProgress } from '../lib/sessionProgress'
-import { List, X } from 'lucide-react'
+import { List, ListChecks, Pause, Play, RotateCcw, Undo2, X } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -179,6 +179,34 @@ const EMPTY_SLOT: SlotState = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * One round control in the corner of the arena. Icon only, so the label is
+ * carried in the tooltip and in the accessible name.
+ */
+function ArenaControl({
+  label,
+  onClick,
+  disabled = false,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className='flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40'
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function RankingArena() {
   const {
     currentPair,
@@ -195,7 +223,41 @@ export default function RankingArena() {
     canUndo,
   } = useRanker()
 
-  const [showPause, setShowPause] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  /** Whether the phone menu is open. Desktop shows the controls outright. */
+  const [showControls, setShowControls] = useState(false)
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false)
+
+  const controls = [
+    {
+      key: 'pause',
+      label: isPaused ? 'Play' : 'Pause',
+      onClick: () => setIsPaused((value) => !value),
+      disabled: false,
+      icon: isPaused ? <Play size={20} /> : <Pause size={20} />,
+    },
+    {
+      key: 'undo',
+      label: 'Undo last pick',
+      onClick: undoLastVote,
+      disabled: !canUndo,
+      icon: <Undo2 size={20} />,
+    },
+    {
+      key: 'restart',
+      label: 'Start over',
+      onClick: () => setShowRestartConfirm(true),
+      disabled: false,
+      icon: <RotateCcw size={20} />,
+    },
+    {
+      key: 'results',
+      label: 'See my results',
+      onClick: forceFinish,
+      disabled: false,
+      icon: <ListChecks size={20} />,
+    },
+  ]
   const [stopSuggestionDismissed, setStopSuggestionDismissed] = useState(false)
 
   // Two reasons for the whole pool to go quiet: the pause menu is open, or the
@@ -212,7 +274,7 @@ export default function RankingArena() {
     readFalse,
   )
   const phase: PlaybackPhase =
-    showPause || !isTabVisible ? 'suspended' : 'active'
+    isPaused || !isTabVisible ? 'suspended' : 'active'
 
   // ── Pool state ──────────────────────────────────────────────────────────────
   // Slots 0,1 = group-0 pair   Slots 2,3 = group-1 pair
@@ -556,7 +618,7 @@ export default function RankingArena() {
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowPause((v) => !v)
+      if (e.key === 'Escape') setIsPaused((v) => !v)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && canUndo) {
         e.preventDefault()
         undoLastVote()
@@ -582,7 +644,7 @@ export default function RankingArena() {
   const intents = intentsForPool(activeGroup, phase)
   const progress = sessionProgress(tracks.length, completedComparisons)
   const showStopSuggestion =
-    progress.suggestStop && !stopSuggestionDismissed && !showPause
+    progress.suggestStop && !stopSuggestionDismissed && !isPaused
   const debugRows: DebugSlotRow[] = slots.map((slot, index) => ({
     index,
     group: groupOfSlot(index),
@@ -624,18 +686,54 @@ export default function RankingArena() {
 
       {/* ── Main Ranking Area ── */}
       <div className='flex-1 relative'>
-        {/* Pause Menu Button */}
-        <button
-          onClick={() => setShowPause(!showPause)}
-          className='absolute top-4 left-4 z-50 w-12 h-12 rounded-full bg-white/80 backdrop-blur-md border border-slate-200 flex items-center justify-center hover:bg-white shadow-sm transition-colors'
-          aria-label='Menu'
-        >
-          {showPause ? (
-            <X size={24} className='text-slate-600' />
-          ) : (
-            <List size={24} className='text-slate-600' />
-          )}
-        </button>
+        {/* Controls. A visible row on desktop; on a phone the same icons sit in
+            a column under a menu button that turns into a close cross. Restart is
+            destructive, so it confirms in a dialog rather than acting outright. */}
+        <div className='absolute top-4 left-4 z-50'>
+          <div className='hidden md:flex items-center gap-2'>
+            {controls.map((control) => (
+              <ArenaControl
+                key={control.key}
+                label={control.label}
+                onClick={control.onClick}
+                disabled={control.disabled}
+              >
+                {control.icon}
+              </ArenaControl>
+            ))}
+          </div>
+
+          <div className='flex flex-col items-start gap-2 md:hidden'>
+            <button
+              onClick={() => setShowControls((value) => !value)}
+              className='w-12 h-12 rounded-full bg-white/80 backdrop-blur-md border border-slate-200 flex items-center justify-center hover:bg-white shadow-sm transition-colors'
+              aria-label={showControls ? 'Close menu' : 'Open menu'}
+              aria-expanded={showControls}
+            >
+              {showControls ? (
+                <X size={24} className='text-slate-600' />
+              ) : (
+                <List size={24} className='text-slate-600' />
+              )}
+            </button>
+
+            {showControls &&
+              controls.map((control) => (
+                <ArenaControl
+                  key={control.key}
+                  label={control.label}
+                  onClick={() => {
+                    control.onClick()
+                    // The work is done, so get out of the way.
+                    if (control.key !== 'pause') setShowControls(false)
+                  }}
+                  disabled={control.disabled}
+                >
+                  {control.icon}
+                </ArenaControl>
+              ))}
+          </div>
+        </div>
 
         {/* Mobile: full-width confidence bar */}
         <div className='md:hidden absolute top-0 left-0 right-0 z-50 h-0.5 bg-slate-200 pointer-events-none'>
@@ -690,68 +788,41 @@ export default function RankingArena() {
           </div>
         )}
 
-        {/* Pause Overlay */}
-        {showPause && (
+        {/* Starting over throws away every pick, so it asks first */}
+        {showRestartConfirm && (
           <div
-            className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-[60] flex items-center justify-center'
+            className='fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/30 backdrop-blur-sm'
             onClick={(event) => {
-              // Only a click that landed on the scrim itself, so dragging or
-              // selecting inside the panel cannot dismiss it.
-              if (event.target === event.currentTarget) setShowPause(false)
+              if (event.target === event.currentTarget) {
+                setShowRestartConfirm(false)
+              }
             }}
           >
-            <div className='bg-white/95 backdrop-blur-md rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-200 shadow-xl'>
-              <h2 className='text-2xl font-bold text-slate-900 mb-4'>Paused</h2>
-              <p className='text-slate-600 mb-6'>
-                {completedComparisons} pick
-                {completedComparisons !== 1 ? 's' : ''} in.
+            <div className='mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-xl'>
+              <h2 className='text-lg font-bold text-slate-900'>Start over?</h2>
+              <p className='mt-2 text-sm text-slate-600'>
+                This clears all {completedComparisons} pick
+                {completedComparisons !== 1 ? 's' : ''} and starts the ranking
+                again from the first pair.
               </p>
-              <div className='flex flex-col gap-3'>
+              <div className='mt-5 flex gap-3'>
                 <button
-                  onClick={() => setShowPause(false)}
-                  className='w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors'
+                  onClick={() => setShowRestartConfirm(false)}
+                  className='flex-1 rounded-lg bg-slate-100 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-200'
                 >
-                  Resume Ranking
+                  Cancel
                 </button>
                 <button
                   onClick={() => {
-                    undoLastVote()
-                    setShowPause(false)
+                    restartRanker()
+                    setShowRestartConfirm(false)
+                    setIsPaused(false)
                   }}
-                  disabled={!canUndo}
-                  className='w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 font-semibold py-3 rounded-lg transition-colors text-left px-4'
+                  className='flex-1 rounded-lg bg-rose-600 py-2.5 font-semibold text-white transition-colors hover:bg-rose-700'
                 >
-                  ↩ Undo Last Swipe
-                  {canUndo && (
-                    <span className='float-right text-slate-400 text-xs font-normal mt-0.5'>
-                      Ctrl+Z
-                    </span>
-                  )}
+                  Start over
                 </button>
-                <button
-                  onClick={() => {
-                    if (
-                      confirm(
-                        'Restart ranking? All your picks will be cleared.',
-                      )
-                    ) {
-                      restartRanker()
-                      setShowPause(false)
-                    }
-                  }}
-                  className='w-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold py-3 rounded-lg transition-colors text-left px-4'
-                >
-                  ↺ Restart from Scratch
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPause(false)
-                    forceFinish()
-                  }}
-                  className='w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors'
-                >
-                  See my results
-                </button>              </div>
+              </div>
             </div>
           </div>
         )}
