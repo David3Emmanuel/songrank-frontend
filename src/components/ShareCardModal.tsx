@@ -73,22 +73,22 @@ export default function ShareCardModal({
   }
 
   return (
-    <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto'>
-      <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full border border-white/20 my-8'>
+    <div className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto'>
+      <div className='bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full border border-slate-200 shadow-xl my-8'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div>
-            <h2 className='text-xl font-bold text-white'>Share your rankings</h2>
+            <h2 className='text-xl font-bold text-slate-900'>Share your rankings</h2>
             {playlistName && (
-              <p className='text-white/50 text-sm mt-0.5'>{playlistName}</p>
+              <p className='text-slate-500 text-sm mt-0.5'>{playlistName}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className='w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'
+            className='w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors'
             aria-label='Close'
           >
-            <X size={20} className='text-white' />
+            <X size={20} className='text-slate-600' />
           </button>
         </div>
 
@@ -96,7 +96,7 @@ export default function ShareCardModal({
         <div className='space-y-4 mb-6'>
           {/* Top N */}
           <div>
-            <label className='block text-white/80 text-sm font-medium mb-2'>
+            <label className='block text-slate-600 text-sm font-medium mb-2'>
               Number of Songs
             </label>
             <div className='flex gap-2'>
@@ -106,8 +106,8 @@ export default function ShareCardModal({
                   onClick={() => setConfig({ ...config, top_n: n })}
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.top_n === n
-                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   Top {n}
@@ -118,7 +118,7 @@ export default function ShareCardModal({
 
           {/* Format */}
           <div>
-            <label className='block text-white/80 text-sm font-medium mb-2'>
+            <label className='block text-slate-600 text-sm font-medium mb-2'>
               Format
             </label>
             <div className='flex gap-2'>
@@ -137,8 +137,8 @@ export default function ShareCardModal({
                   }
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.format === format.value
-                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   {format.label}
@@ -149,7 +149,7 @@ export default function ShareCardModal({
 
           {/* Theme */}
           <div>
-            <label className='block text-white/80 text-sm font-medium mb-2'>
+            <label className='block text-slate-600 text-sm font-medium mb-2'>
               Theme
             </label>
             <div className='flex gap-2'>
@@ -167,8 +167,8 @@ export default function ShareCardModal({
                   }
                   className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                     config.theme === theme.value
-                      ? 'bg-white/20 ring-1 ring-white/40 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      ? 'bg-slate-900 text-white ring-1 ring-slate-900'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   {theme.label}
@@ -186,9 +186,9 @@ export default function ShareCardModal({
               onChange={(e) =>
                 setConfig({ ...config, include_stats: e.target.checked })
               }
-              className='w-5 h-5 rounded border-white/30 bg-white/10 checked:bg-emerald-600'
+              className='w-5 h-5 rounded border-slate-300 bg-white checked:bg-emerald-600'
             />
-            <label htmlFor='include-stats' className='text-white/80'>
+            <label htmlFor='include-stats' className='text-slate-600'>
               Include ranking scores
             </label>
           </div>
@@ -196,8 +196,8 @@ export default function ShareCardModal({
 
         {/* Error */}
         {error && (
-          <div className='bg-red-600/20 border border-red-500/30 rounded-lg p-3 mt-4'>
-            <p className='text-sm text-red-200'>{error}</p>
+          <div className='bg-rose-50 border border-rose-200 rounded-lg p-3 mt-4'>
+            <p className='text-sm text-rose-700'>{error}</p>
           </div>
         )}
 
@@ -206,7 +206,7 @@ export default function ShareCardModal({
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className='w-full bg-white hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
+            className='w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2'
           >
             {isGenerating ? (
               <>
@@ -222,7 +222,7 @@ export default function ShareCardModal({
         {/* Preview */}
         {previewUrl && (
           <div className='space-y-4'>
-            <div className='bg-white/5 rounded-lg p-4 max-h-96 overflow-auto'>
+            <div className='bg-slate-50 border border-slate-200 rounded-lg p-4 max-h-96 overflow-auto'>
               <img
                 src={previewUrl}
                 alt='Share card preview'
@@ -251,7 +251,7 @@ export default function ShareCardModal({
             {/* Regenerate */}
             <button
               onClick={() => { setPreviewUrl(null); setError(null) }}
-              className='w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-2 rounded-lg transition-colors'
+              className='w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg transition-colors'
             >
               Change Settings
             </button>

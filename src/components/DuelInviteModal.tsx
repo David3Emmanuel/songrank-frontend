@@ -79,22 +79,22 @@ export default function DuelInviteModal({
   }
 
   return (
-    <div className='fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
-      <div className='bg-slate-900/95 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/20'>
+    <div className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4'>
+      <div className='bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-xl'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div>
-            <h2 className='text-xl font-bold text-white'>Challenge a Friend</h2>
+            <h2 className='text-xl font-bold text-slate-900'>Challenge a Friend</h2>
             {playlistName && (
-              <p className='text-white/50 text-sm mt-0.5'>{playlistName}</p>
+              <p className='text-slate-500 text-sm mt-0.5'>{playlistName}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className='w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'
+            className='w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors'
             aria-label='Close'
           >
-            <X size={20} className='text-white' />
+            <X size={20} className='text-slate-600' />
           </button>
         </div>
 
@@ -102,15 +102,15 @@ export default function DuelInviteModal({
           <>
             {/* Info */}
             <div className='mb-6 space-y-3'>
-              <p className='text-white/80'>
+              <p className='text-slate-600'>
                 Invite a friend to rank the same {tracks.length} songs and
                 discover how similar your music tastes are!
               </p>
-              <div className='bg-purple-600/20 border border-purple-500/30 rounded-lg p-4'>
-                <p className='text-sm text-purple-200 font-medium'>
+              <div className='bg-purple-50 border border-purple-200 rounded-lg p-4'>
+                <p className='text-sm text-purple-700 font-medium'>
                   📊 You&apos;ll see:
                 </p>
-                <ul className='text-sm text-purple-200/80 mt-2 space-y-1 ml-4'>
+                <ul className='text-sm text-purple-700 mt-2 space-y-1 ml-4'>
                   <li>• Compatibility score (0-100%)</li>
                   <li>• Songs you both love</li>
                   <li>• Your biggest disagreements</li>
@@ -120,8 +120,8 @@ export default function DuelInviteModal({
 
             {/* Error */}
             {error && (
-              <div className='bg-red-600/20 border border-red-500/30 rounded-lg p-3 mb-4'>
-                <p className='text-sm text-red-200'>{error}</p>
+              <div className='bg-rose-50 border border-rose-200 rounded-lg p-3 mb-4'>
+                <p className='text-sm text-rose-700'>{error}</p>
               </div>
             )}
 
@@ -148,33 +148,33 @@ export default function DuelInviteModal({
           <>
             {/* Success */}
             <div className='mb-6 space-y-4'>
-              <div className='bg-emerald-600/20 border border-emerald-500/30 rounded-lg p-4'>
-                <p className='text-emerald-200 font-semibold mb-2'>
+              <div className='bg-emerald-50 border border-emerald-200 rounded-lg p-4'>
+                <p className='text-emerald-700 font-semibold mb-2'>
                   ✅ Challenge Created!
                 </p>
-                <p className='text-sm text-emerald-200/80'>
+                <p className='text-sm text-emerald-700'>
                   Share this link with your friend. They&apos;ll rank the same
                   songs, and you&apos;ll both see the comparison results.
                 </p>
               </div>
 
               {/* URL Display */}
-              <div className='bg-white/5 rounded-lg p-3 flex items-center gap-2'>
+              <div className='bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-2'>
                 <input
                   type='text'
                   value={shareUrl}
                   readOnly
-                  className='flex-1 bg-transparent text-white text-sm outline-none'
+                  className='flex-1 bg-transparent text-slate-900 text-sm outline-none'
                 />
                 <button
                   onClick={handleCopy}
-                  className='shrink-0 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors'
+                  className='shrink-0 w-10 h-10 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors'
                   aria-label='Copy link'
                 >
                   {copied ? (
-                    <Check size={20} className='text-emerald-400' />
+                    <Check size={20} className='text-emerald-600' />
                   ) : (
-                    <Copy size={20} className='text-white' />
+                    <Copy size={20} className='text-slate-600' />
                   )}
                 </button>
               </div>
@@ -190,7 +190,7 @@ export default function DuelInviteModal({
               </button>
               <button
                 onClick={onClose}
-                className='flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-lg transition-colors'
+                className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-lg transition-colors'
               >
                 Done
               </button>

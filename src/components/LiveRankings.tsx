@@ -28,14 +28,14 @@ export default function LiveRankings({
   return (
     <>
       {/* Desktop View (Sidebar) */}
-      <div className='hidden md:flex flex-col w-80 h-full bg-slate-900/95 backdrop-blur-md border-l border-white/10 overflow-hidden'>
+      <div className='hidden md:flex flex-col w-80 h-full bg-white/70 backdrop-blur-md border-l border-slate-200/80 overflow-hidden'>
         {/* Header */}
-        <div className='p-4 border-b border-white/10'>
+        <div className='p-4 border-b border-slate-200'>
           <div className='flex items-center gap-2 mb-2'>
-            <Trophy size={20} className='text-yellow-500' />
+            <Trophy size={20} className='text-amber-500' />
             <h3 className='text-lg font-bold'>Current Rankings</h3>
           </div>
-          <p className='text-sm text-white/60'>
+          <p className='text-sm text-slate-500'>
             {completedComparisons} comparison
             {completedComparisons !== 1 ? 's' : ''}
           </p>
@@ -44,7 +44,7 @@ export default function LiveRankings({
         {/* Rankings List */}
         <div className='flex-1 overflow-y-auto p-3 space-y-1.5'>
           {rankedTracks.length === 0 ? (
-            <div className='text-center text-white/50 py-8 text-sm'>
+            <div className='text-center text-slate-500 py-8 text-sm'>
               Make some comparisons to see rankings
             </div>
           ) : (
@@ -58,8 +58,8 @@ export default function LiveRankings({
                 return (
                   <div
                     key={track.id}
-                    className={`bg-white/5 rounded-lg p-2 flex items-center gap-2 transition-all hover:bg-white/10 ${
-                      idx < 3 ? 'border border-yellow-500/30' : ''
+                    className={`bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-lg p-2 flex items-center gap-2 transition-all hover:bg-slate-100 ${
+                      idx < 3 ? 'ring-1 ring-yellow-500/40' : ''
                     }`}
                   >
                     {/* Rank */}
@@ -67,14 +67,14 @@ export default function LiveRankings({
                       {medal ? (
                         <span className='text-xl'>{medal}</span>
                       ) : (
-                        <span className='text-sm font-semibold text-white/40'>
+                        <span className='text-sm font-semibold text-slate-400'>
                           #{idx + 1}
                         </span>
                       )}
                     </div>
 
                     {/* Album Art */}
-                    <div className='shrink-0 w-10 h-10 rounded overflow-hidden bg-slate-700'>
+                    <div className='shrink-0 w-10 h-10 rounded overflow-hidden bg-slate-100 text-slate-300'>
                       <TrackArtwork
                         src={track.coverImage}
                         alt={track.title}
@@ -89,7 +89,7 @@ export default function LiveRankings({
                       <h4 className='text-sm font-semibold truncate leading-tight'>
                         {track.title}
                       </h4>
-                      <p className='text-xs text-white/50 truncate leading-tight'>
+                      <p className='text-xs text-slate-500 truncate leading-tight'>
                         {track.artist}
                       </p>
                     </div>
@@ -97,7 +97,7 @@ export default function LiveRankings({
                     {/* Score */}
                     {hasScore && (
                       <div className='shrink-0 text-right'>
-                        <div className='text-xs font-bold text-white/70'>
+                        <div className='text-xs font-bold text-slate-600'>
                           {item.Score.toFixed(1)}
                         </div>
                       </div>
@@ -110,7 +110,7 @@ export default function LiveRankings({
         </div>
 
         {/* Footer Hint */}
-        <div className='p-3 border-t border-white/10 text-xs text-white/50 text-center'>
+        <div className='p-3 border-t border-slate-200 text-xs text-slate-500 text-center'>
           Rankings update after each vote
         </div>
       </div>
@@ -121,11 +121,11 @@ export default function LiveRankings({
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className='fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full bg-slate-800/95 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg hover:bg-slate-700 transition-colors'
+            className='fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full bg-white/95 backdrop-blur-md border border-slate-200 flex items-center justify-center shadow-lg hover:bg-white transition-colors'
             aria-label='View Rankings'
           >
             <div className='relative'>
-              <Trophy size={24} className='text-yellow-500' />
+              <Trophy size={24} className='text-amber-500' />
               {completedComparisons > 0 && (
                 <div className='absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white'>
                   {completedComparisons > 9 ? '9+' : completedComparisons}
@@ -140,24 +140,24 @@ export default function LiveRankings({
           <>
             {/* Backdrop */}
             <div
-              className='fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fade-in'
+              className='fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 animate-fade-in'
               onClick={() => setIsOpen(false)}
             />
 
             {/* Sheet */}
-            <div className='fixed inset-x-0 bottom-0 z-50 bg-slate-900/98 backdrop-blur-md rounded-t-3xl border-t border-white/10 max-h-[80vh] flex flex-col animate-slide-up'>
+            <div className='fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur-md rounded-t-3xl border-t border-slate-200 shadow-xl max-h-[80vh] flex flex-col animate-slide-up'>
               {/* Handle Bar */}
-              <div className='flex items-center justify-center py-3 border-b border-white/10'>
-                <div className='w-12 h-1 bg-white/30 rounded-full' />
+              <div className='flex items-center justify-center py-3 border-b border-slate-200'>
+                <div className='w-12 h-1 bg-slate-300 rounded-full' />
               </div>
 
               {/* Header */}
-              <div className='px-4 py-3 flex items-center justify-between border-b border-white/10'>
+              <div className='px-4 py-3 flex items-center justify-between border-b border-slate-200'>
                 <div className='flex items-center gap-2'>
-                  <Trophy size={20} className='text-yellow-500' />
+                  <Trophy size={20} className='text-amber-500' />
                   <div>
                     <h3 className='font-bold'>Current Rankings</h3>
-                    <p className='text-xs text-white/60'>
+                    <p className='text-xs text-slate-500'>
                       {completedComparisons} comparison
                       {completedComparisons !== 1 ? 's' : ''}
                     </p>
@@ -165,7 +165,7 @@ export default function LiveRankings({
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className='w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors'
+                  className='w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors'
                   aria-label='Close'
                 >
                   <X size={18} />
@@ -175,7 +175,7 @@ export default function LiveRankings({
               {/* Rankings List */}
               <div className='flex-1 overflow-y-auto p-4 space-y-2'>
                 {rankedTracks.length === 0 ? (
-                  <div className='text-center text-white/50 py-12'>
+                  <div className='text-center text-slate-500 py-12'>
                     Make some comparisons to see rankings
                   </div>
                 ) : (
@@ -194,8 +194,8 @@ export default function LiveRankings({
                     return (
                       <div
                         key={track.id}
-                        className={`bg-white/5 rounded-xl p-3 flex items-center gap-3 ${
-                          idx < 3 ? 'border border-yellow-500/30' : ''
+                        className={`bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-xl p-3 flex items-center gap-3 ${
+                          idx < 3 ? 'ring-1 ring-yellow-500/40' : ''
                         }`}
                       >
                         {/* Rank */}
@@ -203,14 +203,14 @@ export default function LiveRankings({
                           {medal ? (
                             <span className='text-2xl'>{medal}</span>
                           ) : (
-                            <span className='text-lg font-semibold text-white/40'>
+                            <span className='text-lg font-semibold text-slate-400'>
                               #{idx + 1}
                             </span>
                           )}
                         </div>
 
                         {/* Album Art */}
-                        <div className='shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-700'>
+                        <div className='shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
                           <TrackArtwork
                             src={track.coverImage}
                             alt={track.title}
@@ -225,7 +225,7 @@ export default function LiveRankings({
                           <h4 className='font-semibold truncate'>
                             {track.title}
                           </h4>
-                          <p className='text-sm text-white/60 truncate'>
+                          <p className='text-sm text-slate-500 truncate'>
                             {track.artist}
                           </p>
                         </div>
@@ -233,7 +233,7 @@ export default function LiveRankings({
                         {/* Score */}
                         {hasScore && (
                           <div className='shrink-0 text-right'>
-                            <div className='text-xs text-white/50'>Score</div>
+                            <div className='text-xs text-slate-500'>Score</div>
                             <div className='text-sm font-bold'>
                               {item.Score.toFixed(1)}
                             </div>
@@ -246,7 +246,7 @@ export default function LiveRankings({
               </div>
 
               {/* Footer */}
-              <div className='p-4 border-t border-white/10 text-xs text-white/50 text-center'>
+              <div className='p-4 border-t border-slate-200 text-xs text-slate-500 text-center'>
                 Rankings update after each vote
               </div>
             </div>

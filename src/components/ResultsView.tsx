@@ -20,18 +20,18 @@ export default function ResultsView() {
     .filter((r) => r.track)
 
   return (
-    <div className='min-h-screen bg-slate-900 text-white p-4 md:p-8'>
+    <div className='min-h-screen bg-gradient-to-b from-white to-sky-50 text-slate-900 p-4 md:p-8'>
       <div className='max-w-4xl mx-auto'>
         {/* Header */}
         <div className='text-center mb-8'>
-          <div className='inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/30 mb-4'>
-            <Trophy size={40} className='text-yellow-400' />
+          <div className='inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm mb-4'>
+            <Trophy size={40} className='text-amber-500' />
           </div>
           <h1 className='text-4xl font-bold mb-2'>Your Rankings</h1>
           {playlistName && (
-            <p className='text-white/80 text-lg font-medium mb-1'>{playlistName}</p>
+            <p className='text-slate-600 text-lg font-medium mb-1'>{playlistName}</p>
           )}
-          <p className='text-white/50 text-sm'>
+          <p className='text-slate-500 text-sm'>
             Based on {completedComparisons} comparisons
           </p>
         </div>
@@ -41,7 +41,7 @@ export default function ResultsView() {
           <button
             disabled
             title='Coming soon'
-            className='flex items-center gap-2 bg-white/5 border border-white/20 text-white/40 px-6 py-3 rounded-lg font-semibold cursor-not-allowed'
+            className='flex items-center gap-2 bg-slate-100 border border-slate-200 text-slate-400 px-6 py-3 rounded-lg font-semibold cursor-not-allowed'
           >
             <Download size={20} />
             Export to Spotify (Coming Soon)
@@ -72,21 +72,21 @@ export default function ResultsView() {
             return (
               <div
                 key={track.id}
-                className='bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 flex items-center gap-4 hover:bg-white/15 transition-colors'
+                className='bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-xl p-4 flex items-center gap-4 hover:bg-slate-100 transition-colors'
               >
                 {/* Rank */}
                 <div className='shrink-0 w-12 text-center'>
                   {medal ? (
                     <span className='text-3xl'>{medal}</span>
                   ) : (
-                    <span className='text-2xl font-bold text-white/50'>
+                    <span className='text-2xl font-bold text-slate-500'>
                       #{idx + 1}
                     </span>
                   )}
                 </div>
 
                 {/* Album Art */}
-                <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-700'>
+                <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
                   {track.coverImage ? (
                     <Image
                       src={track.coverImage}
@@ -96,7 +96,7 @@ export default function ResultsView() {
                       className='object-cover'
                     />
                   ) : (
-                    <div className='w-full h-full flex items-center justify-center text-white/30'>
+                    <div className='w-full h-full flex items-center justify-center text-slate-400'>
                       ♪
                     </div>
                   )}
@@ -107,14 +107,14 @@ export default function ResultsView() {
                   <h3 className='font-semibold text-lg truncate'>
                     {track.title}
                   </h3>
-                  <p className='text-sm text-white/60 truncate'>
+                  <p className='text-sm text-slate-500 truncate'>
                     {track.artist}
                   </p>
                 </div>
 
                 {/* Score */}
                 <div className='shrink-0 text-right'>
-                  <div className='text-sm text-white/50'>Score</div>
+                  <div className='text-sm text-slate-500'>Score</div>
                   <div className='text-lg font-bold'>
                     {item.Score.toFixed(2)}
                   </div>
@@ -128,7 +128,7 @@ export default function ResultsView() {
         <div className='mt-8 text-center'>
           <button
             onClick={resetRanker}
-            className='text-white/60 hover:text-white underline transition-colors'
+            className='text-slate-500 hover:text-slate-900 underline transition-colors'
           >
             Start New Ranking
           </button>
