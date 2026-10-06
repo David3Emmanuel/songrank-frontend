@@ -1,6 +1,7 @@
 import type { SongCollection, Track } from '../types'
 import {
   artistFromChannelTitle,
+  artistFromVideo,
   chunkIds,
   decodeHtmlEntities,
   parseIsoDurationMs,
@@ -25,7 +26,7 @@ interface VideosListResponse {
   items?: Array<{
     id: string
     contentDetails?: { duration?: string }
-    snippet?: { channelTitle?: string }
+    snippet?: { channelTitle?: string; title?: string }
   }>
 }
 
@@ -197,7 +198,10 @@ export class YouTubeAdapter {  private apiKey: string
       items.map((item) => ({
         id: item.contentDetails.videoId,
         title: decodeHtmlEntities(item.snippet.title),
-        artist: artistFromChannelTitle(item.snippet.videoOwnerChannelTitle),
+        artist: artistFromVideo(
+          item.snippet.videoOwnerChannelTitle,
+          decodeHtmlEntities(item.snippet.title),
+        ),
         album: '',
         durationMs: details.get(item.contentDetails.videoId)?.durationMs ?? 0,
         coverImage:
@@ -321,10 +325,17 @@ export class YouTubeAdapter {  private apiKey: string
       const found = details.get(track.id)
       if (!found) return track
 
+      // A run-together name is the signature of a VEVO channel, whose spelling
+      // YouTube Music's own album page repeats. The video's title spells the same
+      // artist properly ("Kendrick Lamar - DNA."), so it is used when it agrees
+      // with the channel and only then.
+      const spelled = artistFromVideo(found.channelTitle, found.title)
       const named =
         track.artist && track.artist !== 'Unknown Artist'
-          ? track.artist
-          : found.artist || track.artist
+          ? !track.artist.includes(' ') && spelled.includes(' ')
+            ? spelled
+            : track.artist
+          : spelled || track.artist
       const durationMs = track.durationMs || found.durationMs
 
       return named === track.artist && durationMs === track.durationMs
@@ -341,8 +352,13 @@ export class YouTubeAdapter {  private apiKey: string
    */
   private async fetchVideoDetails(
     videoIds: string[],
-  ): Promise<Map<string, { durationMs: number; artist: string }>> {
-    const details = new Map<string, { durationMs: number; artist: string }>()
+  ): Promise<
+    Map<string, { durationMs: number; channelTitle: string; title: string }>
+  > {
+    const details = new Map<
+      string,
+      { durationMs: number; channelTitle: string; title: string }
+    >()
 
     for (const batch of chunkIds(videoIds, 50)) {
       try {
@@ -358,7 +374,10 @@ export class YouTubeAdapter {  private apiKey: string
         for (const item of data.items ?? []) {
           details.set(item.id, {
             durationMs: parseIsoDurationMs(item.contentDetails?.duration),
-            artist: artistFromChannelTitle(item.snippet?.channelTitle ?? ''),
+            // Kept raw: the spelling is reconciled with the title in fillDetails,
+            // which is the only place that has both.
+            channelTitle: item.snippet?.channelTitle ?? '',
+            title: item.snippet?.title ?? '',
           })
         }
       } catch {

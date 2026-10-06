@@ -544,7 +544,11 @@ export function parseSearchEntities(payload: unknown): MusicSearchEntity[] {
     const subtitle = parseSubtitle(detail)
     const videoType = findValue(columns[0], 'musicVideoType')
     const pageType = pageTypeOf(row)
-    const videoId = findValue(columns[0], 'videoId')
+    // An album's own track rows carry no video id on the title: theirs sits on the
+    // row's play button. Looking only inside the title column dropped nine of
+    // DAMN.'s fourteen tracks, leaving the five that are laid out differently.
+    const videoId =
+      findValue(columns[0], 'videoId') ?? findValue(row, 'videoId')
 
     if (!pageType && typeof videoId === 'string' && videoId) {
       entities.push({

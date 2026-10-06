@@ -72,11 +72,14 @@ export class YouTubeMusicAdapter {
     browseId: string,
     title: string,
     max = 50,
+    fallbackCover?: string,
   ): Promise<GroupedSongCollection> {
     const payload = await this.call(INNERTUBE_BROWSE_ENDPOINT, { browseId })
     const parsed = parseSearchEntities(payload)
 
-    return this.toCollection(parsed, max, title, `from ${title}`)
+    // An album's own tracks come back without artwork of their own, so the cover
+    // of the row that was opened is handed to every track that has none.
+    return this.toCollection(parsed, max, title, `from ${title}`, fallbackCover)
   }
 
   /** Just the playable songs, for callers that do not care about the rest. */
@@ -128,6 +131,7 @@ export class YouTubeMusicAdapter {
     max: number,
     name: string,
     description: string,
+    fallbackCover?: string,
   ): GroupedSongCollection {
     const songs = parsed
       .filter((entity) => entity.kind === 'song' || entity.kind === 'video')
@@ -141,7 +145,7 @@ export class YouTubeMusicAdapter {
         durationMs: song.durationMs,
         videoType: song.videoType,
         album: song.album,
-        coverImage: smallerThumbnailUrl(song.coverImage),
+        coverImage: smallerThumbnailUrl(song.coverImage ?? fallbackCover),
       })),
     )
 

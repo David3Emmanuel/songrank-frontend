@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id')?.trim() ?? ''
   const kind = request.nextUrl.searchParams.get('kind')?.trim() ?? ''
   const title = request.nextUrl.searchParams.get('title')?.trim() ?? ''
+  // The cover from the row that was opened: an album''s track rows carry none.
+  const cover = request.nextUrl.searchParams.get('cover')?.trim() ?? ''
 
   const pattern = ID_PATTERNS[kind]
   if (!pattern || !pattern.test(id)) {
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
       id,
       title || 'This',
       RESULT_COUNT,
+      cover || undefined,
     )
 
     if (collection.tracks.length === 0) {

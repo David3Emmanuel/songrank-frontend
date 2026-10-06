@@ -338,3 +338,76 @@ test('a credit with several names is read as several names', () => {
   assert.equal(isByArtist(row, { id: 'UCj', name: 'Jay Rock' }), true)
   assert.equal(isByArtist(row, { id: 'UCd', name: 'Drake' }), false)
 })
+
+// An album's own track rows keep the video id on the play button rather than on
+// the title, which is why nine of DAMN.'s fourteen tracks used to be dropped.
+test('a track row whose id sits on its play button is still a song', () => {
+  const payload = {
+    musicResponsiveListItemRenderer: {
+      flexColumns: [
+        {
+          musicResponsiveListItemFlexColumnRenderer: {
+            text: { runs: [{ text: 'BLOOD.' }] },
+          },
+        },
+        {
+          musicResponsiveListItemFlexColumnRenderer: {
+            text: { runs: [{ text: 'Song • 1:58' }] },
+          },
+        },
+      ],
+      overlay: {
+        musicItemThumbnailOverlayRenderer: {
+          content: {
+            musicPlayButtonRenderer: {
+              playNavigationEndpoint: {
+                watchEndpoint: { videoId: 'aBcDeFgHiJk' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+
+  const [entity] = parseSearchEntities(payload)
+  assert.equal(entity.kind, 'song')
+  assert.equal(entity.id, 'aBcDeFgHiJk')
+  assert.equal(entity.title, 'BLOOD.')
+  // The row's own subtitle still carries the length.
+  assert.equal(entity.durationMs, 118000)
+})
+
+test('the title column is preferred when it carries the id', () => {
+  const payload = {
+    musicResponsiveListItemRenderer: {
+      flexColumns: [
+        {
+          musicResponsiveListItemFlexColumnRenderer: {
+            text: {
+              runs: [
+                {
+                  text: 'DNA.',
+                  navigationEndpoint: { watchEndpoint: { videoId: 'titleId12345' } },
+                },
+              ],
+            },
+          },
+        },
+      ],
+      overlay: {
+        musicItemThumbnailOverlayRenderer: {
+          content: {
+            musicPlayButtonRenderer: {
+              playNavigationEndpoint: {
+                watchEndpoint: { videoId: 'buttonId1234' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+
+  assert.equal(parseSearchEntities(payload)[0].id, 'titleId12345')
+})

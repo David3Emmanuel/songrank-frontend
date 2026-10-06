@@ -95,6 +95,30 @@ export function artistFromChannelTitle(
   return cleaned || 'Unknown Artist'
 }
 
+/**
+ * The artist a video's channel and title agree on.
+ *
+ * VEVO channels run the artist's name together with the suffix, so stripping it
+ * from "KendrickLamarVEVO" leaves "KendrickLamar". The title usually spells the
+ * same name properly, "Kendrick Lamar - DNA.", and when the two match with the
+ * spaces taken out, the title's spelling is the one to use. This matters beyond
+ * looks: two spellings of one artist read as two different artists to the filter.
+ */
+export function artistFromVideo(
+  channelTitle: string | null | undefined,
+  title: string,
+): string {
+  const channel = artistFromChannelTitle(channelTitle)
+  if (channel.includes(' ')) return channel
+
+  const [beforeSeparator] = title.split(/\s+[-–—]\s+/)
+  const candidate = beforeSeparator?.trim() ?? ''
+  if (!candidate || candidate.length > 40) return channel
+
+  const bare = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return bare(candidate) === bare(channel) ? candidate : channel
+}
+
 /** Split ids into batches the Data API will accept in one `id=` parameter. */
 export function chunkIds<T>(items: T[], size: number): T[][] {
   if (size < 1) throw new Error('chunk size must be at least 1')

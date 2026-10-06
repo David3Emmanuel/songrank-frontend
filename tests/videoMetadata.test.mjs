@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   artistFromChannelTitle,
+  artistFromVideo,
   chunkIds,
   decodeHtmlEntities,
   parseIsoDurationMs,
@@ -83,4 +84,35 @@ test('batches ids into the size the API accepts', () => {
   assert.equal(last.length, 3)
   assert.equal(last[2].length, 20)
   assert.throws(() => chunkIds([1], 0))
+})
+
+// A VEVO channel runs the artist's name together with the suffix, so stripping it
+// leaves "KendrickLamar". The video's own title spells the same name properly.
+test('a run together channel name is spelled out by the title', () => {
+  assert.equal(
+    artistFromVideo('KendrickLamarVEVO', 'Kendrick Lamar - DNA.'),
+    'Kendrick Lamar',
+  )
+  assert.equal(
+    artistFromVideo('NonameVEVO', 'Noname - Rainforest'),
+    'Noname',
+  )
+})
+
+test('a channel that already reads properly is left alone', () => {
+  assert.equal(
+    artistFromVideo('Kendrick Lamar - Topic', 'DNA.'),
+    'Kendrick Lamar',
+  )
+  assert.equal(artistFromVideo('', 'DNA.'), 'Unknown Artist')
+})
+
+test('a title that disagrees with the channel does not rename anybody', () => {
+  // The channel says one thing and the title another: neither is trusted to
+  // rewrite the other.
+  assert.equal(
+    artistFromVideo('KendrickLamarVEVO', 'Some Other Artist - DNA.'),
+    'KendrickLamar',
+  )
+  assert.equal(artistFromVideo('TemsVEVO', 'Free Mind'), 'Tems')
 })

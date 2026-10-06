@@ -226,6 +226,9 @@ function DashboardContent() {
           id: entity.id,
           title: entity.title,
         })
+        // The row's artwork is the release's: the page it opens has none for its
+        // own track rows, so it is passed along.
+        if (entity.coverImage) params.set('cover', entity.coverImage)
         const res = await fetch(`/api/expand?${params}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'That did not open.')
