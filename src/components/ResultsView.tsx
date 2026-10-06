@@ -71,12 +71,58 @@ export default function ResultsView() {
           </button>
         </div>
 
-        {/* Rankings List */}
+        {/* Podium for the top three. Second and third flank the winner, and a
+            place nobody reached stays as an empty pedestal. */}
+        <div className='mb-8 flex items-end justify-center gap-3'>
+          {[2, 1, 3].map((place) => {
+            const item = rankedTracks[place - 1]
+            const track = item?.track
+            const pedestal = place === 1 ? 108 : place === 2 ? 80 : 60
+
+            return (
+              <div key={place} className='flex w-32 flex-col items-center'>
+                {track ? (
+                  <>
+                    <div
+                      className={`mb-2 overflow-hidden rounded-xl bg-slate-100 shadow-sm ${
+                        place === 1 ? 'h-20 w-20' : 'h-16 w-16'
+                      }`}
+                    >
+                      <TrackArtwork src={track.coverImage} alt={track.title} />
+                    </div>
+                    <p className='w-full truncate text-center text-sm font-semibold'>
+                      {track.title}
+                    </p>
+                    <p className='mb-2 w-full truncate text-center text-xs text-slate-500'>
+                      {track.artist}
+                    </p>
+                  </>
+                ) : (
+                  <div className='mb-2 h-16 w-16 rounded-xl border border-dashed border-slate-200' />
+                )}
+
+                <div
+                  className={`flex w-full items-start justify-center rounded-t-xl pt-1.5 text-xl font-black ${
+                    place === 1
+                      ? 'bg-amber-100 text-amber-700'
+                      : place === 2
+                        ? 'bg-slate-200 text-slate-600'
+                        : 'bg-orange-100 text-orange-700'
+                  }`}
+                  style={{ height: pedestal }}
+                >
+                  {place}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* The rest of the list, continuing below the podium */}
         <div className='space-y-2'>
-          {rankedTracks.map((item, idx) => {
+          {rankedTracks.slice(3).map((item, idx) => {
             const track = item.track!
-            const medal =
-              idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
+            const rank = idx + 4
 
             return (
               <div
@@ -85,13 +131,9 @@ export default function ResultsView() {
               >
                 {/* Rank */}
                 <div className='shrink-0 w-12 text-center'>
-                  {medal ? (
-                    <span className='text-3xl'>{medal}</span>
-                  ) : (
-                    <span className='text-2xl font-bold text-slate-500'>
-                      #{idx + 1}
-                    </span>
-                  )}
+                  <span className='text-2xl font-bold text-slate-500'>
+                    #{rank}
+                  </span>
                 </div>
 
                 {/* Album Art */}
