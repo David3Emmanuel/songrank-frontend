@@ -186,6 +186,7 @@ export default function RankingArena() {
     submitVote,
     confidence,
     completedComparisons,
+    comparisonCounts,
     forceFinish,
     rankings,
     tracks,
@@ -788,6 +789,7 @@ export default function RankingArena() {
         rankings={rankings}
         tracks={tracks}
         completedComparisons={completedComparisons}
+        comparisonCounts={comparisonCounts}
       />
 
       {/* Pool state, when asked for with ?debug=players */}

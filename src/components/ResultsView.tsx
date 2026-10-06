@@ -5,11 +5,19 @@ import ShareCardModal from './ShareCardModal'
 import DuelInviteModal from './DuelInviteModal'
 import TrackArtwork from './TrackArtwork'
 import { sessionProgress } from '../lib/sessionProgress'
+import { bandStarts, measuredRange, normalizeScore, scoreTint } from '../lib/scoreDisplay'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
 
 export default function ResultsView() {
-  const { rankings, tracks, playlistName, completedComparisons, resetRanker } = useRanker()
+  const {
+    rankings,
+    tracks,
+    playlistName,
+    completedComparisons,
+    comparisonCounts,
+    resetRanker,
+  } = useRanker()
   const [showShareModal, setShowShareModal] = useState(false)
   const [showDuelModal, setShowDuelModal] = useState(false)
   const progress = sessionProgress(tracks.length, completedComparisons)
@@ -20,6 +28,15 @@ export default function ResultsView() {
       return { ...r, track }
     })
     .filter((r) => r.track)
+
+  // Which rows carry a real measurement, and where the breaks between groups
+  // fall. A song nobody has picked is left out of both: its 0 is an absence.
+  const measured = rankedTracks.map(
+    (item) => (comparisonCounts[item.track!.id] ?? 0) > 0,
+  )
+  const scores = rankedTracks.map((item) => item.Score)
+  const range = measuredRange(scores, measured)
+  const breaks = bandStarts(scores, measured)
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-white to-sky-50 text-slate-900 p-4 md:p-8'>
@@ -123,39 +140,64 @@ export default function ResultsView() {
           {rankedTracks.slice(3).map((item, idx) => {
             const track = item.track!
             const rank = idx + 4
+            const position = idx + 3
+            const unmeasured = !measured[position]
 
             return (
-              <div
-                key={track.id}
-                className='bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-xl p-4 flex items-center gap-4 hover:bg-slate-100 transition-colors'
-              >
-                {/* Rank */}
-                <div className='shrink-0 w-12 text-center'>
-                  <span className='text-2xl font-bold text-slate-500'>
-                    #{rank}
-                  </span>
-                </div>
+              <div key={track.id}>
+                {breaks[position] && (
+                  <div className='mb-2 flex h-3 items-center'>
+                    <div className='h-px w-full bg-slate-300' />
+                  </div>
+                )}
+                <div
+                  className={`backdrop-blur-md border shadow-sm rounded-xl p-4 flex items-center gap-4 transition-colors ${
+                    unmeasured
+                      ? 'border-slate-200/60 bg-slate-100/80'
+                      : 'border-slate-200/80 bg-white/70 hover:bg-slate-100'
+                  }`}
+                  style={{
+                    backgroundColor: unmeasured
+                      ? undefined
+                      : scoreTint(normalizeScore(item.Score, range)),
+                  }}
+                >
+                  {/* Rank */}
+                  <div className='shrink-0 w-12 text-center'>
+                    <span
+                      className={`text-2xl font-bold ${
+                        unmeasured ? 'text-slate-300' : 'text-slate-500'
+                      }`}
+                    >
+                      #{rank}
+                    </span>
+                  </div>
 
-                {/* Album Art */}
-                <div className='shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
-                  <TrackArtwork src={track.coverImage} alt={track.title} />
-                </div>
+                  {/* Album Art */}
+                  <div
+                    className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-100 ${
+                      unmeasured ? 'opacity-60' : ''
+                    }`}
+                  >
+                    <TrackArtwork src={track.coverImage} alt={track.title} />
+                  </div>
 
-                {/* Track Info */}
-                <div className='flex-1 min-w-0'>
-                  <h3 className='font-semibold text-lg truncate'>
-                    {track.title}
-                  </h3>
-                  <p className='text-sm text-slate-500 truncate'>
-                    {track.artist}
-                  </p>
-                </div>
-
-                {/* Score */}
-                <div className='shrink-0 text-right'>
-                  <div className='text-sm text-slate-500'>Score</div>
-                  <div className='text-lg font-bold'>
-                    {item.Score.toFixed(2)}
+                  {/* Track Info */}
+                  <div className='flex-1 min-w-0'>
+                    <h3
+                      className={`font-semibold text-lg truncate ${
+                        unmeasured ? 'text-slate-400' : 'text-slate-900'
+                      }`}
+                    >
+                      {track.title}
+                    </h3>
+                    <p
+                      className={`text-sm truncate ${
+                        unmeasured ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
+                      {track.artist}
+                    </p>
                   </div>
                 </div>
               </div>

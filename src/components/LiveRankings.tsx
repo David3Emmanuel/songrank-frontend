@@ -3,18 +3,109 @@
 import { useState } from 'react'
 import { Trophy, X } from 'lucide-react'
 import TrackArtwork from './TrackArtwork'
+import { bandStarts, measuredRange, normalizeScore, scoreTint } from '../lib/scoreDisplay'
 import type { SongRanking, Track } from '../lib/types'
 
 interface LiveRankingsProps {
   rankings: SongRanking[]
   tracks: Track[]
   completedComparisons: number
+  /** Comparisons per song id. Absent means never compared. */
+  comparisonCounts?: Record<string, number>
+}
+
+interface RankedRow {
+  item: SongRanking & { track?: Track }
+  breaksBefore: boolean
+  /** Undefined for a song nobody has compared: shown greyed out instead. */
+  tint?: string
+}
+
+/**
+ * One ranked song, drawn the same way in the sidebar and the phone sheet.
+ *
+ * A song with no comparisons is grey and carries no colour, so it reads as not
+ * yet measured rather than as a middling score.
+ */
+function RankingRow({
+  row,
+  rank,
+  size,
+}: {
+  row: RankedRow
+  rank: number
+  size: 'sidebar' | 'sheet'
+}) {
+  const track = row.item.track!
+  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+  const unmeasured = row.tint === undefined
+  const sheet = size === 'sheet'
+
+  return (
+    <>
+      {row.breaksBefore && (
+        <div className='flex h-3 shrink-0 items-center'>
+          <div className='h-px w-full bg-slate-300' />
+        </div>
+      )}
+      <div
+        className={`flex items-center gap-2 rounded-lg border shadow-sm ${
+          sheet ? 'gap-3 rounded-xl p-3' : 'p-2'
+        } ${
+          unmeasured
+            ? 'border-slate-200/60 bg-slate-100/80'
+            : `border-slate-200/80 ${rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''}`
+        }`}
+        style={{ backgroundColor: row.tint }}
+      >
+        <div className={`w-8 shrink-0 text-center ${sheet ? 'w-10' : ''}`}>
+          {medal && !unmeasured ? (
+            <span className={sheet ? 'text-2xl' : 'text-xl'}>{medal}</span>
+          ) : (
+            <span
+              className={`font-semibold ${sheet ? 'text-lg' : 'text-sm'} ${
+                unmeasured ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              #{rank}
+            </span>
+          )}
+        </div>
+
+        <div
+          className={`shrink-0 overflow-hidden rounded bg-slate-100/80 ${
+            sheet ? 'h-12 w-12' : 'h-10 w-10'
+          } ${unmeasured ? 'opacity-60' : ''}`}
+        >
+          <TrackArtwork src={track.coverImage} alt={track.title} />
+        </div>
+
+        <div className='min-w-0 flex-1'>
+          <h4
+            className={`truncate leading-tight font-semibold ${
+              sheet ? 'text-base' : 'text-sm'
+            } ${unmeasured ? 'text-slate-400' : 'text-slate-900'}`}
+          >
+            {track.title}
+          </h4>
+          <p
+            className={`truncate leading-tight ${
+              sheet ? 'text-sm' : 'text-xs'
+            } ${unmeasured ? 'text-slate-400' : 'text-slate-500'}`}
+          >
+            {track.artist}
+          </p>
+        </div>
+      </div>
+    </>
+  )
 }
 
 export default function LiveRankings({
   rankings,
   tracks,
   completedComparisons,
+  comparisonCounts = {},
 }: LiveRankingsProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -24,6 +115,23 @@ export default function LiveRankings({
       return { ...r, track }
     })
     .filter((r) => r.track)
+
+  // Which rows carry a real measurement, the session's range, and where the
+  // breaks between groups fall. A song nobody has picked is left out of all
+  // three: its 0 is an absence, not a score.
+  const measured = rankedTracks.map(
+    (item) => (comparisonCounts[item.track!.id] ?? 0) > 0,
+  )
+  const scores = rankedTracks.map((item) => item.Score)
+  const range = measuredRange(scores, measured)
+  const breaks = bandStarts(scores, measured)
+
+  /** Everything a row needs to draw itself, worked out once for both layouts. */
+  const rows = rankedTracks.map((item, i) => ({
+    item,
+    breaksBefore: breaks[i],
+    tint: measured[i] ? scoreTint(normalizeScore(scores[i], range)) : undefined,
+  }))
 
   return (
     <>
@@ -48,58 +156,14 @@ export default function LiveRankings({
               Pick a few winners and your ranking shows up here
             </div>
           ) : (
-            <>
-              {rankedTracks.map((item, idx) => {
-                const track = item.track!
-                const medal =
-                  idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
-                const hasScore = item.Score !== 0
-
-                return (
-                  <div
-                    key={track.id}
-                    className={`bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-lg p-2 flex items-center gap-2 transition-all hover:bg-slate-100 ${
-                      idx < 3 ? 'ring-1 ring-yellow-500/40' : ''
-                    }`}
-                  >
-                    {/* Rank */}
-                    <div className='shrink-0 w-8 text-center'>
-                      {medal ? (
-                        <span className='text-xl'>{medal}</span>
-                      ) : (
-                        <span className='text-sm font-semibold text-slate-400'>
-                          #{idx + 1}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Album Art */}
-                    <div className='shrink-0 w-10 h-10 rounded overflow-hidden bg-slate-100 text-slate-300'>
-                      <TrackArtwork src={track.coverImage} alt={track.title} />
-                    </div>
-
-                    {/* Track Info */}
-                    <div className='flex-1 min-w-0'>
-                      <h4 className='text-sm font-semibold truncate leading-tight'>
-                        {track.title}
-                      </h4>
-                      <p className='text-xs text-slate-500 truncate leading-tight'>
-                        {track.artist}
-                      </p>
-                    </div>
-
-                    {/* Score */}
-                    {hasScore && (
-                      <div className='shrink-0 text-right'>
-                        <div className='text-xs font-bold text-slate-600'>
-                          {item.Score.toFixed(1)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </>
+            rows.map((row, idx) => (
+              <RankingRow
+                key={row.item.track!.id}
+                row={row}
+                rank={idx + 1}
+                size='sidebar'
+              />
+            ))
           )}
         </div>
 
@@ -173,63 +237,14 @@ export default function LiveRankings({
                     Pick a few winners and your ranking shows up here
                   </div>
                 ) : (
-                  rankedTracks.map((item, idx) => {
-                    const track = item.track!
-                    const medal =
-                      idx === 0
-                        ? '🥇'
-                        : idx === 1
-                          ? '🥈'
-                          : idx === 2
-                            ? '🥉'
-                            : null
-                    const hasScore = item.Score !== 0
-
-                    return (
-                      <div
-                        key={track.id}
-                        className={`bg-white/70 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-xl p-3 flex items-center gap-3 ${
-                          idx < 3 ? 'ring-1 ring-yellow-500/40' : ''
-                        }`}
-                      >
-                        {/* Rank */}
-                        <div className='shrink-0 w-10 text-center'>
-                          {medal ? (
-                            <span className='text-2xl'>{medal}</span>
-                          ) : (
-                            <span className='text-lg font-semibold text-slate-400'>
-                              #{idx + 1}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Album Art */}
-                        <div className='shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-slate-100 text-slate-300'>
-                          <TrackArtwork src={track.coverImage} alt={track.title} />
-                        </div>
-
-                        {/* Track Info */}
-                        <div className='flex-1 min-w-0'>
-                          <h4 className='font-semibold truncate'>
-                            {track.title}
-                          </h4>
-                          <p className='text-sm text-slate-500 truncate'>
-                            {track.artist}
-                          </p>
-                        </div>
-
-                        {/* Score */}
-                        {hasScore && (
-                          <div className='shrink-0 text-right'>
-                            <div className='text-xs text-slate-500'>Score</div>
-                            <div className='text-sm font-bold'>
-                              {item.Score.toFixed(1)}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
+                  rows.map((row, idx) => (
+                    <RankingRow
+                      key={row.item.track!.id}
+                      row={row}
+                      rank={idx + 1}
+                      size='sheet'
+                    />
+                  ))
                 )}
               </div>
 

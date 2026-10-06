@@ -329,6 +329,22 @@ export class PlaylistRanker {
   }
 
   /**
+   * How many times each song has been compared.
+   *
+   * A song with no comparisons scores 0, and so does a song that was compared
+   * and landed exactly on 0. The count is what tells those apart, which matters
+   * before anything is drawn from the score.
+   */
+  getComparisonCounts(): Record<string, number> {
+    const counts: Record<string, number> = {}
+    for (const row of this.history) {
+      counts[row.song_a] = (counts[row.song_a] ?? 0) + 1
+      counts[row.song_b] = (counts[row.song_b] ?? 0) + 1
+    }
+    return counts
+  }
+
+  /**
    * Remove and return the most recent comparison (for undo support)
    */
   undoLastComparison(): ComparisonHistory | null {

@@ -6,6 +6,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from 'react'
 import { PlaylistRanker } from '../lib/PlaylistRanker'
 import type { Track, Feedback, RankerState, SongRanking } from '../lib/types'
@@ -19,6 +20,8 @@ interface RankerContextValue {
   rankings: SongRanking[]
   confidence: number
   completedComparisons: number
+  /** Comparisons per song id. Absent means never compared. */
+  comparisonCounts: Record<string, number>
   isComplete: boolean
   canUndo: boolean
 
@@ -241,6 +244,14 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
 
   const canUndo = completedComparisons > 0
 
+  // A song with no comparisons scores 0, and so does one that was compared and
+  // landed on 0. Screens need the count to tell those apart.
+  const comparisonCounts = useMemo(
+    () => ranker?.getComparisonCounts() ?? {},
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ranker, completedComparisons],
+  )
+
   const value: RankerContextValue = {
     ranker,
     tracks,
@@ -250,6 +261,7 @@ export function RankerProvider({ children }: { children: React.ReactNode }) {
     rankings,
     confidence,
     completedComparisons,
+    comparisonCounts,
     isComplete,
     canUndo,
     initializeRanker,
