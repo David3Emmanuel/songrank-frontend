@@ -1,15 +1,25 @@
 /**
  * The player pool's lifecycle rules, as pure functions.
  *
- * Four iframes sit in two groups of two. What each one should be doing follows
- * from exactly two facts — which group is on screen, and whether playback is
- * suspended — and the players are then driven imperatively from that, never
+ * Six iframes sit in three groups of two: the pair on screen, the pair waiting
+ * ahead of it, and the pair just left behind. What each one should be doing
+ * follows from exactly two facts — which group is on screen, and whether playback
+ * is suspended — and the players are then driven imperatively from that, never
  * from React props. Keeping the rules here means they can be tested without a
  * browser, which matters because the bugs they exist to prevent are audible
  * rather than visible.
  */
 
-export const SLOT_COUNT = 4
+/** Two players per group, because a comparison is two tracks. */
+export const PLAYERS_PER_GROUP = 2
+
+/** On screen, waiting ahead, and just left behind. */
+export const GROUP_COUNT = 3
+
+export const SLOT_COUNT = PLAYERS_PER_GROUP * GROUP_COUNT
+
+/** Which pair of players a slot belongs to. */
+export type Group = 0 | 1 | 2
 
 /** Both sides of a comparison sit at the same level; this is just the mix level. */
 export const DEFAULT_MIX_LEVEL = 50
@@ -58,30 +68,44 @@ export type SlotIntent =
 export type PlaybackPhase = 'active' | 'suspended'
 
 /** Slots 0,1 back the pair on screen; slots 2,3 the preloaded one. */
-export function groupOfSlot(slotIndex: number): 0 | 1 {
-  return slotIndex <= 1 ? 0 : 1
+export function groupOfSlot(slotIndex: number): Group {
+  return Math.floor(slotIndex / PLAYERS_PER_GROUP) as Group
 }
 
-export function slotsOfGroup(group: 0 | 1): [number, number] {
-  return group === 0 ? [0, 1] : [2, 3]
+export function slotsOfGroup(group: Group): [number, number] {
+  const first = group * PLAYERS_PER_GROUP
+  return [first, first + 1]
 }
 
-/** The group that is not on screen — the one holding the preloaded pair. */
-export function otherGroup(group: 0 | 1): 0 | 1 {
-  return group === 0 ? 1 : 0
+/**
+ * The group holding the pair that will be promoted next.
+ *
+ * In a two group pool this was simply "the other one". With three, the ring
+ * separates the pair waiting ahead from the pair just left behind, which is what
+ * makes an undo a promotion rather than a reload.
+ */
+export function nextGroup(group: Group): Group {
+  return ((group + 1) % GROUP_COUNT) as Group
+}
+
+/** The group holding the pair the session has just come from. */
+export function previousGroup(group: Group): Group {
+  return ((group + GROUP_COUNT - 1) % GROUP_COUNT) as Group
 }
 
 export function intentForSlot(
   slotIndex: number,
-  activeGroup: 0 | 1,
+  activeGroup: Group,
   phase: PlaybackPhase,
 ): SlotIntent {
   if (phase === 'suspended') return 'suspended'
+  // Everything off screen is buffered and silent, the history group included:
+  // it is kept warm so an undo can promote it, never so it can be heard.
   return groupOfSlot(slotIndex) === activeGroup ? 'playing' : 'cued'
 }
 
 export function intentsForPool(
-  activeGroup: 0 | 1,
+  activeGroup: Group,
   phase: PlaybackPhase,
 ): SlotIntent[] {
   return Array.from({ length: SLOT_COUNT }, (_, index) =>

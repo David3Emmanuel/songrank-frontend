@@ -12,7 +12,10 @@ import {
   groupOfSlot,
   intentsForPool,
   isPlayerReady,
-  otherGroup,
+  nextGroup,
+  previousGroup,
+  SLOT_COUNT,
+  type Group,
   readDuration,
   readPlayerSnapshot,
   runCommand,
@@ -177,6 +180,13 @@ const EMPTY_SLOT: SlotState = {
   ytState: YT_UNKNOWN,
 }
 
+/**
+ * A pool's worth of empty slots, sized from the pool's own count so the two
+ * cannot drift apart, with a fresh object each so no slot shares another's state.
+ */
+const emptySlots = (): SlotState[] =>
+  Array.from({ length: SLOT_COUNT }, () => ({ ...EMPTY_SLOT }))
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
@@ -250,14 +260,9 @@ export default function RankingArena() {
   // ── Pool state ──────────────────────────────────────────────────────────────
   // Slots 0,1 = group-0 pair   Slots 2,3 = group-1 pair
   // activeGroup determines which pair the user currently sees.
-  const [slots, setSlots] = useState<SlotState[]>([
-    EMPTY_SLOT,
-    EMPTY_SLOT,
-    EMPTY_SLOT,
-    EMPTY_SLOT,
-  ])
+  const [slots, setSlots] = useState<SlotState[]>(emptySlots())
   // Mirror of slots readable synchronously in async callbacks (no stale closure)
-  const slotsRef = useRef<SlotState[]>([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])
+  const slotsRef = useRef<SlotState[]>(emptySlots())
 
   const slot0Ref = useRef<PlayerHandle | null>(null)
   const slot1Ref = useRef<PlayerHandle | null>(null)
@@ -273,9 +278,9 @@ export default function RankingArena() {
   const appliedRef = useRef<Array<AppliedSlot | null>>([null, null, null, null])
 
   // Ref version avoids stale closures in async callbacks; state drives render
-  const activeGroupRef = useRef<0 | 1>(0)
-  const [activeGroup, setActiveGroupState] = useState<0 | 1>(0)
-  const setActiveGroup = useCallback((g: 0 | 1) => {
+  const activeGroupRef = useRef<Group>(0)
+  const [activeGroup, setActiveGroupState] = useState<Group>(0)
+  const setActiveGroup = useCallback((g: Group) => {
     activeGroupRef.current = g
     setActiveGroupState(g)
   }, [])
@@ -423,8 +428,10 @@ export default function RankingArena() {
     initialized.current = true
   }, [currentPair, loadSlot])
 
-  // 2. Pair transition — promotes preloaded slots to active on each forward
-  //    vote, or reloads active slots directly on undo.
+  // 2. Pair transition — rotates the ring one way on a forward vote and the
+  //    other way on an undo. Both are promotions: forward takes the pair that has
+  //    been buffering ahead, undo takes the pair still buffered behind it, so an
+  //    undo is instant rather than a reload.
   //    Must run BEFORE the nextPair preload effect so activeGroupRef is
   //    already rotated when the preload effect reads it.
   useEffect(() => {
@@ -454,22 +461,20 @@ export default function RankingArena() {
       // Rotate: promote the pair that has been buffering off screen. Playback,
       // volume and position all follow from the new active group — the reconcile
       // at the end of this file applies them.
-      setActiveGroup(otherGroup(activeGroupRef.current))
+      setActiveGroup(nextGroup(activeGroupRef.current))
     } else {
-      // Undo: reload the currently active slots with the restored pair directly,
-      // no group rotation needed
-      const [aL, aR] = slotsOfGroup(activeGroupRef.current)
-      loadSlot(aL, currentPair[0])
-      loadSlot(aR, currentPair[1])
+      // Undo: the pair the session came from is still buffered in the previous
+      // group, so rotating back promotes it rather than reloading it.
+      setActiveGroup(previousGroup(activeGroupRef.current))
     }
   }, [currentPair, completedComparisons, setActiveGroup, loadSlot])
 
-  // 3. nextPair preload — keeps the idle slots warm with the upcoming pair.
+  // 3. nextPair preload — keeps the group ahead warm with the upcoming pair.
   //    Runs AFTER the transition effect so activeGroupRef reflects the new
   //    group and we load into the just-freed (not just-promoted) slots.
   useEffect(() => {
     if (!nextPair || !initialized.current) return
-    const [pL, pR] = slotsOfGroup(otherGroup(activeGroupRef.current))
+    const [pL, pR] = slotsOfGroup(nextGroup(activeGroupRef.current))
     loadSlot(pL, nextPair[0])
     loadSlot(pR, nextPair[1])
   }, [nextPair, loadSlot])
@@ -505,7 +510,7 @@ export default function RankingArena() {
     prevPairRef.current = null
     prevCompletedInTransitionRef.current = 0
     setActiveGroup(0)
-    const empty: SlotState[] = [EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]
+    const empty = emptySlots()
     slotsRef.current = empty
     setSlots(empty)
   }, [setActiveGroup])

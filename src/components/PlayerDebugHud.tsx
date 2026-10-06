@@ -4,11 +4,12 @@ import {
   labelForPlayerState,
   type PlaybackPhase,
   type SlotIntent,
+  type Group,
 } from '../lib/playerSlots'
 
 export interface DebugSlotRow {
   index: number
-  group: 0 | 1
+  group: Group
   title: string
   videoId: string
   isFallback: boolean
@@ -22,7 +23,7 @@ export interface DebugSlotRow {
 
 export interface PlayerDebugHudProps {
   rows: DebugSlotRow[]
-  activeGroup: 0 | 1
+  activeGroup: Group
   phase: PlaybackPhase
 }
 

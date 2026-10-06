@@ -4,10 +4,12 @@ import assert from 'node:assert/strict'
 import {
   commandsForSlot,
   groupOfSlot,
+  SLOT_COUNT,
   intentForSlot,
   intentsForPool,
   labelForPlayerState,
-  otherGroup,
+  nextGroup,
+  previousGroup,
   previewStartSeconds,
   readCurrentTime,
   readDuration,
@@ -31,12 +33,27 @@ const seekTo = (commands) => {
 // A 4:23 video, as videos.list reports it.
 const VIDEO_SECONDS = 263
 
-test('slots 0,1 are group 0 and slots 2,3 are group 1', () => {
-  assert.deepEqual([0, 1, 2, 3].map(groupOfSlot), [0, 0, 1, 1])
+test('six slots make three pairs of two', () => {
+  assert.equal(SLOT_COUNT, 6)
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(groupOfSlot), [0, 0, 1, 1, 2, 2])
   assert.deepEqual(slotsOfGroup(0), [0, 1])
   assert.deepEqual(slotsOfGroup(1), [2, 3])
-  assert.equal(otherGroup(0), 1)
-  assert.equal(otherGroup(1), 0)
+  assert.deepEqual(slotsOfGroup(2), [4, 5])
+})
+
+// The ring is what makes an undo a promotion: the group behind the active one
+// still holds the pair the session came from.
+test('the groups form a ring, forwards and back', () => {
+  assert.equal(nextGroup(0), 1)
+  assert.equal(nextGroup(1), 2)
+  assert.equal(nextGroup(2), 0)
+  assert.equal(previousGroup(0), 2)
+  assert.equal(previousGroup(1), 0)
+  assert.equal(previousGroup(2), 1)
+  for (const group of [0, 1, 2]) {
+    assert.equal(previousGroup(nextGroup(group)), group)
+    assert.equal(nextGroup(previousGroup(group)), group)
+  }
 })
 
 test('only the group on screen plays', () => {
@@ -44,20 +61,34 @@ test('only the group on screen plays', () => {
   assert.equal(intentForSlot(1, 0, 'active'), 'playing')
   assert.equal(intentForSlot(2, 0, 'active'), 'cued')
   assert.equal(intentForSlot(3, 0, 'active'), 'cued')
+  assert.equal(intentForSlot(4, 0, 'active'), 'cued')
+  assert.equal(intentForSlot(5, 0, 'active'), 'cued')
   assert.equal(intentForSlot(2, 1, 'active'), 'playing')
+  assert.equal(intentForSlot(4, 2, 'active'), 'playing')
+  assert.equal(intentForSlot(5, 2, 'active'), 'playing')
   assert.equal(intentForSlot(0, 1, 'active'), 'cued')
+  assert.equal(intentForSlot(0, 2, 'active'), 'cued')
 })
 
 // The regression this whole module exists for: an off-screen slot must never be
 // left playing, whatever its video is doing.
 test('an off-screen slot is never playing', () => {
   const intents = intentsForPool(1, 'active')
-  assert.deepEqual(intents, ['cued', 'cued', 'playing', 'playing'])
+  assert.deepEqual(intents, [
+    'cued',
+    'cued',
+    'playing',
+    'playing',
+    'cued',
+    'cued',
+  ])
   assert.equal(intents.filter((intent) => intent === 'playing').length, 2)
 })
 
 test('a suspended pool plays nothing at all', () => {
   assert.deepEqual(intentsForPool(0, 'suspended'), [
+    'suspended',
+    'suspended',
     'suspended',
     'suspended',
     'suspended',
