@@ -5,7 +5,13 @@ import ShareCardModal from './ShareCardModal'
 import DuelInviteModal from './DuelInviteModal'
 import TrackArtwork from './TrackArtwork'
 import { sessionProgress } from '../lib/sessionProgress'
-import { bandStarts, measuredRange, normalizeScore, scoreTint } from '../lib/scoreDisplay'
+import {
+  bandStarts,
+  measuredRange,
+  normalizeScore,
+  PLACE_COLOURS,
+  scoreTint,
+} from '../lib/scoreDisplay'
 import { formatDurationMs } from '../lib/videoMetadata'
 import { Trophy, Download, Share2, Users } from 'lucide-react'
 import { useState } from 'react'
@@ -99,12 +105,6 @@ export default function ResultsView() {
             const duration = formatDurationMs(track?.durationMs)
             const winner = place === 1
 
-            const badge =
-              place === 1
-                ? 'bg-amber-500'
-                : place === 2
-                  ? 'bg-slate-400'
-                  : 'bg-orange-500'
             const frame =
               place === 1
                 ? 'border-amber-300 shadow-lg shadow-amber-500/10'
@@ -120,7 +120,8 @@ export default function ResultsView() {
                 }`}
               >
                 <span
-                  className={`absolute -top-3 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full text-xs font-bold text-white md:h-7 md:w-7 md:text-sm ${badge}`}
+                  className='absolute -top-3 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full text-xs font-bold text-white md:h-7 md:w-7 md:text-sm'
+                  style={{ backgroundColor: PLACE_COLOURS[place - 1] }}
                 >
                   {place}
                 </span>

@@ -34,15 +34,12 @@ export default function ShareCardModal({
   /** The first card is drawn at once; later changes wait for a pause. */
   const drawnOnce = useRef(false)
 
-  const topTracks = useMemo(
+  const topSongs = useMemo(
     () =>
       rankings
         .slice(0, config.top_n)
-        .map((ranking) => {
-          const track = tracks.find((t) => t.id === ranking.Song)
-          return { ranking, track: track! }
-        })
-        .filter((item) => item.track),
+        .map((ranking) => tracks.find((t) => t.id === ranking.Song))
+        .filter((track): track is Track => Boolean(track)),
     [rankings, tracks, config.top_n],
   )
 
@@ -75,7 +72,12 @@ export default function ShareCardModal({
     const timer = setTimeout(() => {
       drawnOnce.current = true
 
-      generateShareCard(topTracks, config, playlistName)
+      generateShareCard({
+        tracks: topSongs,
+        playlistName,
+        totalSongs: rankings.length,
+        config,
+      })
         .then((blob) => {
           if (!cancelled) setCard(blob)
         })
@@ -94,7 +96,7 @@ export default function ShareCardModal({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [topTracks, playlistName, config])
+  }, [topSongs, playlistName, config, rankings.length])
 
   // A short confirmation, then back to normal.
   useEffect(() => {

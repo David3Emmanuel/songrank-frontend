@@ -17,6 +17,24 @@ export const DEFAULT_TINT = 0.12
 /** The breaks worth showing between groups of songs. */
 export const MAX_BANDS = 4
 
+/**
+ * Podium colours, first to third.
+ *
+ * The screen draws its badges from these and the share card draws its badges and
+ * borders from them, so the two cannot drift apart. Any Tailwind class used for
+ * the same place should be a lighter tint of the same hue.
+ */
+export const PLACE_COLOURS = ['#f59e0b', '#94a3b8', '#f97316'] as const
+
+/**
+ * How the share card describes how much of the ranking it shows:
+ * "Top 3 of 20", or just the count when that is the whole list.
+ */
+export function cardSubtitle(shown: number, total: number): string {
+  const songs = `${shown} song${shown === 1 ? '' : 's'}`
+  return total > shown ? `Top ${songs} of ${total}` : `Top ${songs}`
+}
+
 export interface ScoreRange {
   min: number
   max: number

@@ -3,10 +3,12 @@ import assert from 'node:assert/strict'
 
 import {
   bandStarts,
+  cardSubtitle,
   DEFAULT_TINT,
   MAX_BANDS,
   measuredRange,
   normalizeScore,
+  PLACE_COLOURS,
   scoreTint,
 } from '../src/lib/scoreDisplay.ts'
 
@@ -91,4 +93,16 @@ test('a list of uneven gaps is still capped', () => {
 test('an empty list and a single song are safe', () => {
   assert.deepEqual(bandStarts([], []), [])
   assert.deepEqual(bandStarts([1], [true]), [false])
+})
+
+test('the card says how much of the ranking it shows', () => {
+  assert.equal(cardSubtitle(3, 20), 'Top 3 songs of 20')
+  assert.equal(cardSubtitle(5, 5), 'Top 5 songs')
+  assert.equal(cardSubtitle(1, 1), 'Top 1 song')
+})
+
+test('the podium keeps one colour per place, shared with the card', () => {
+  assert.equal(PLACE_COLOURS.length, 3)
+  assert.equal(PLACE_COLOURS[0], '#f59e0b')
+  assert.equal(PLACE_COLOURS[2], '#f97316')
 })

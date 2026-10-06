@@ -1,8 +1,6 @@
-import type { Track, SongRanking, ShareCardConfig } from './types'
+import type { Track, ShareCardConfig } from './types'
+import { cardSubtitle, PLACE_COLOURS } from './scoreDisplay'
 import { coverCrop, formatDurationMs, largerThumbnailUrl } from './videoMetadata'
-
-/** Place colours, matching the podium on the results screen. */
-const PLACE_COLOURS = ['#f59e0b', '#94a3b8', '#f97316']
 
 interface Palette {
   background: [string, string]
@@ -30,6 +28,8 @@ function palette(theme: 'dark' | 'light'): Palette {
       }
 }
 
+
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -46,6 +46,16 @@ function roundRect(
   ctx.rect(x, y, width, height)
 }
 
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 /** The cover at the best size available, or null if none of them load. */
 async function loadCover(track: Track): Promise<HTMLImageElement | null> {
   const candidates = [largerThumbnailUrl(track.coverImage), track.coverImage]
@@ -58,16 +68,6 @@ async function loadCover(track: Track): Promise<HTMLImageElement | null> {
     }
   }
   return null
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = url
-  })
 }
 
 function truncate(
@@ -84,18 +84,56 @@ function truncate(
   return `${cut}…`
 }
 
+/** Draws a cover as a square, cropped rather than stretched. */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  cover: HTMLImageElement | null,
+  x: number,
+  y: number,
+  size: number,
+  radius: number,
+  placeholder: string,
+) {
+  ctx.save()
+  roundRect(ctx, x, y, size, size, radius)
+  ctx.clip()
+
+  if (cover) {
+    const crop = coverCrop(
+      cover.naturalWidth || cover.width,
+      cover.naturalHeight || cover.height,
+    )
+    ctx.drawImage(cover, crop.sx, crop.sy, crop.sw, crop.sh, x, y, size, size)
+  } else {
+    ctx.fillStyle = placeholder
+    ctx.fillRect(x, y, size, size)
+  }
+
+  ctx.restore()
+}
+
+export interface ShareCardInput {
+  /** The songs to show, in ranking order. */
+  tracks: Track[]
+  playlistName: string
+  /** How many songs the ranking covered, so a top three can be put in context. */
+  totalSongs: number
+  config: ShareCardConfig
+}
+
 /**
- * Draws the shareable card and hands back a data URL.
+ * Draws the shareable card and hands back a blob.
  *
- * Deliberately close to the results screen: light by default, place badges
- * instead of emoji medals, covers cropped rather than stretched, and no scores
- * unless they are asked for.
+ * The top three get the podium the results screen uses, with the winner's cover
+ * larger, and anything past third is a row. Light by default, covers cropped
+ * rather than stretched, and no scores: this is a summary, not the ranking.
  */
-export async function generateShareCard(
-  topTracks: Array<{ track: Track; ranking: SongRanking }>,
-  config: ShareCardConfig,
-  playlistName: string = 'My ranking',
-): Promise<Blob> {
+export async function generateShareCard({
+  tracks,
+  playlistName,
+  totalSongs,
+  config,
+}: ShareCardInput): Promise<Blob> {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get canvas context')
@@ -117,113 +155,159 @@ export async function generateShareCard(
   ctx.fillRect(0, 0, width, height)
 
   const tall = config.format === '9:16'
-  const rows = topTracks.slice(0, config.top_n)
-  const rowHeight = tall ? 260 : 150
-  const artSize = rowHeight - 60
-  const gap = tall ? 28 : 18
+  const shown = tracks.slice(0, config.top_n)
+  const podium = shown.slice(0, 3)
+  const rest = shown.slice(3)
+
+  // Metrics per shape. The square and wide cards have half the height of a
+  // story, so everything below the podium is drawn tight.
+  const headerY = tall ? 150 : 116
+  const subtitleY = tall ? 214 : 172
+  const podiumTop = tall ? 300 : 210
+  const podiumCover = tall ? 210 : 150
+  const podiumText = tall ? 100 : 78
+  const rowHeight = tall ? 150 : 76
+  const rowArt = tall ? 108 : 52
+  const rowGap = tall ? 22 : 14
+  const rowsTop = podiumTop + podiumCover + podiumText + (tall ? 46 : 26)
   const marginX = tall ? 70 : 60
-  const startY = tall ? 300 : 240
 
   // Header
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.text
-  ctx.font = 'bold 64px system-ui, sans-serif'
-  ctx.fillText(truncate(ctx, playlistName, width - 160), width / 2, 140)
+  ctx.font = `bold ${tall ? 66 : 56}px system-ui, sans-serif`
+  ctx.fillText(
+    truncate(ctx, playlistName, width - marginX * 2),
+    width / 2,
+    headerY,
+  )
 
   ctx.fillStyle = colours.muted
-  ctx.font = '36px system-ui, sans-serif'
-  const count = rows.length
-  ctx.fillText(`Top ${count} song${count === 1 ? '' : 's'}`, width / 2, 196)
+  ctx.font = `${tall ? 36 : 32}px system-ui, sans-serif`
+  ctx.fillText(cardSubtitle(shown.length, totalSongs), width / 2, subtitleY)
 
-  // Covers up front, in parallel: waiting for them one at a time was the slow
-  // part of generating a card.
-  const covers = await Promise.all(rows.map((row) => loadCover(row.track)))
+  // Covers up front, in parallel: one round trip rather than one per song.
+  const covers = await Promise.all(shown.map((track) => loadCover(track)))
 
-  rows.forEach((row, i) => {
-    const y = startY + i * (rowHeight + gap)
-    const colour = PLACE_COLOURS[i] ?? '#64748b'
+  // Podium: second and third flank the winner, as they do on the screen.
+  const columns = [2, 1, 3].filter((place) => place <= podium.length)
+  if (columns.length > 0) {
+    const gap = tall ? 40 : 30
+    const widths = columns.map((place) =>
+      place === 1 ? podiumCover : Math.round(podiumCover * 0.78),
+    )
+    const totalWidth = widths.reduce((sum, w) => sum + w, 0) + gap * (columns.length - 1)
+    let x = (width - totalWidth) / 2
+
+    columns.forEach((place, index) => {
+      const track = podium[place - 1]
+      const cover = covers[place - 1] ?? null
+      const columnWidth = widths[index]
+      const coverSize = place === 1 ? podiumCover : Math.round(podiumCover * 0.78)
+      const coverX = x + (columnWidth - coverSize) / 2
+      const coverY = podiumTop + (podiumCover - coverSize)
+
+      // Cover
+      drawCover(ctx, cover, coverX, coverY, coverSize, tall ? 20 : 16, colours.border)
+
+      // Place badge, straddling the top edge of the cover
+      const badgeRadius = tall ? 26 : 22
+      const badgeX = coverX + coverSize / 2
+      const badgeY = coverY - badgeRadius + 8
+      ctx.beginPath()
+      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+      ctx.fillStyle = PLACE_COLOURS[place - 1] ?? '#64748b'
+      ctx.fill()
+
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `bold ${tall ? 30 : 26}px system-ui, sans-serif`
+      ctx.fillText(String(place), badgeX, badgeY + (tall ? 11 : 9))
+
+      // Title and artist
+      if (track) {
+        ctx.fillStyle = colours.text
+        ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
+        ctx.fillText(
+          truncate(ctx, track.title, columnWidth + 20),
+          x + columnWidth / 2,
+          podiumTop + podiumCover + (tall ? 46 : 36),
+        )
+
+        ctx.fillStyle = colours.muted
+        ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
+        ctx.fillText(
+          truncate(ctx, track.artist, columnWidth + 20),
+          x + columnWidth / 2,
+          podiumTop + podiumCover + (tall ? 82 : 64),
+        )
+      }
+
+      x += columnWidth + gap
+    })
+  }
+
+  // Everything past third
+  rest.forEach((track, index) => {
+    const place = index + 4
+    const cover = covers[index + 3] ?? null
+    const y = rowsTop + index * (rowHeight + rowGap)
+    const colour = PLACE_COLOURS[place - 1] ?? colours.border
 
     ctx.fillStyle = colours.card
-    ctx.strokeStyle = i < 3 ? colour : colours.border
-    ctx.lineWidth = i < 3 ? 4 : 2
-    roundRect(ctx, marginX, y, width - marginX * 2, rowHeight, 28)
+    ctx.strokeStyle = colours.border
+    ctx.lineWidth = 2
+    roundRect(ctx, marginX, y, width - marginX * 2, rowHeight, 20)
     ctx.fill()
     ctx.stroke()
 
     // Place badge
-    const badgeX = marginX + 54
+    const badgeRadius = tall ? 26 : 22
+    const badgeX = marginX + (tall ? 50 : 42)
     const badgeY = y + rowHeight / 2
     ctx.beginPath()
-    ctx.arc(badgeX, badgeY, 30, 0, Math.PI * 2)
+    ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
     ctx.fillStyle = colour
     ctx.fill()
 
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 32px system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(String(i + 1), badgeX, badgeY + 11)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `bold ${tall ? 28 : 24}px system-ui, sans-serif`
+    ctx.fillText(String(place), badgeX, badgeY + (tall ? 10 : 8))
 
-    // Cover, cropped to a square
-    const artX = marginX + 104
-    const artY = y + (rowHeight - artSize) / 2
-    const cover = covers[i]
+    // Cover
+    const artX = marginX + (tall ? 96 : 80)
+    const artY = y + (rowHeight - rowArt) / 2
+    drawCover(ctx, cover, artX, artY, rowArt, 14, colours.border)
 
-    ctx.save()
-    roundRect(ctx, artX, artY, artSize, artSize, 18)
-    ctx.clip()
-    if (cover) {
-      const crop = coverCrop(
-        cover.naturalWidth || cover.width,
-        cover.naturalHeight || cover.height,
-      )
-      ctx.drawImage(
-        cover,
-        crop.sx,
-        crop.sy,
-        crop.sw,
-        crop.sh,
-        artX,
-        artY,
-        artSize,
-        artSize,
-      )
-    } else {
-      ctx.fillStyle = colours.border
-      ctx.fillRect(artX, artY, artSize, artSize)
-    }
-    ctx.restore()
-
-    // Title and artist
-    const textX = artX + artSize + 32
+    // Title, artist and length
+    const textX = artX + rowArt + (tall ? 28 : 22)
     const maxWidth = width - marginX - 30 - textX
+    const length = formatDurationMs(track.durationMs)
 
     ctx.textAlign = 'left'
     ctx.fillStyle = colours.text
-    ctx.font = `bold ${tall ? 40 : 34}px system-ui, sans-serif`
+    ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
     ctx.fillText(
-      truncate(ctx, row.track.title, maxWidth),
+      truncate(ctx, track.title, maxWidth),
       textX,
-      y + rowHeight / 2 - 14,
+      y + rowHeight / 2 - (tall ? 10 : 6),
     )
 
     ctx.fillStyle = colours.muted
-    ctx.font = `${tall ? 30 : 26}px system-ui, sans-serif`
-    const length = formatDurationMs(row.track.durationMs)
-    const subtitle = length
-      ? `${row.track.artist} · ${length}`
-      : row.track.artist
+    ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
     ctx.fillText(
-      truncate(ctx, subtitle, maxWidth),
+      truncate(ctx, length ? `${track.artist} · ${length}` : track.artist, maxWidth),
       textX,
-      y + rowHeight / 2 + 30,
+      y + rowHeight / 2 + (tall ? 32 : 24),
     )
   })
 
   // Footer. No domain is claimed, since this app does not have one to promise.
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.muted
-  ctx.font = '32px system-ui, sans-serif'
-  ctx.fillText('SongRank', width / 2, height - 60)
+  ctx.font = `${tall ? 32 : 28}px system-ui, sans-serif`
+  ctx.fillText('SongRank', width / 2, height - (tall ? 64 : 46))
 
   // A blob rather than a data URL: base64 inflates the bytes by a third, and
   // the share sheet wants a Blob anyway.
