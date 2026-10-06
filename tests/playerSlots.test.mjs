@@ -7,6 +7,14 @@ import {
   SLOT_COUNT,
   intentForSlot,
   intentsForPool,
+  NUDGE_AFTER_MS,
+  NUDGE_LIMIT,
+  stuckCued,
+  YT_BUFFERING,
+  YT_CUED,
+  YT_PAUSED,
+  YT_PLAYING,
+  YT_UNSTARTED,
   labelForPlayerState,
   nextGroup,
   previousGroup,
@@ -239,4 +247,35 @@ test('a player that cannot answer reports 0:00 instead of throwing', () => {
     0,
   )
   assert.equal(readCurrentTime({ getCurrentTime: () => Number.NaN }), 0)
+})
+
+// The hole this closes: a refused play is recorded as played, so the pool never
+// asks again and one side of a comparison stays silent until the tab is hidden and
+// shown, which suspends the pool and asks on resume.
+const applied = (videoId, intent) => ({ videoId, intent })
+
+test('a slot told to play that is only cued is stuck', () => {
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_CUED), true)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_PAUSED), true)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_UNSTARTED), true)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', null), true)
+})
+
+test('a slot that is playing or buffering is left alone', () => {
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_PLAYING), false)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'playing', YT_BUFFERING), false)
+})
+
+test('nothing is nudged that was not asked to play', () => {
+  // A held start, a cued preload and a suspended pool all look like this.
+  assert.equal(stuckCued(null, 'v1', 'playing', YT_CUED), false)
+  assert.equal(stuckCued(applied('v1', 'cued'), 'v1', 'playing', YT_CUED), false)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v2', 'playing', YT_CUED), false)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'cued', YT_CUED), false)
+  assert.equal(stuckCued(applied('v1', 'playing'), 'v1', 'suspended', YT_PAUSED), false)
+})
+
+test('the ask waits long enough not to fight a slow load', () => {
+  assert.ok(NUDGE_AFTER_MS >= 1000, 'a shorter wait would restart players that are slow')
+  assert.ok(NUDGE_LIMIT >= 1 && NUDGE_LIMIT <= 5, 'a silent player should be given up on')
 })

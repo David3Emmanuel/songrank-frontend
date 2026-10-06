@@ -152,6 +152,38 @@ export function shouldHoldStart(sides: SlotReadiness[]): boolean {
   return sides.some((side) => !side.ready && !side.unavailable)
 }
 
+/** How long a slot may sit told-to-play-but-not-playing before it is asked again. */
+export const NUDGE_AFTER_MS = 2000
+
+/** How many times one slot may be asked again for the same video. */
+export const NUDGE_LIMIT = 3
+
+/**
+ * Whether a slot that was told to play is sitting there instead.
+ *
+ * A player can refuse to play without reporting an error. An unmuted autoplay in
+ * an iframe is blocked until the document has user activation, and a refusal looks
+ * exactly like a cue, so nothing distinguishes it from a slow load. The pool
+ * records what it *asked for* rather than what happened, and it only asks when an
+ * intent or a video changes, so a refused play is never repeated: that side stays
+ * silent until something else re-issues the command. Hiding and showing the page is
+ * what does it today, because that suspends the pool and the resume asks again.
+ *
+ * Playing and buffering are on the way. Anything else, once the grace period has
+ * passed, means the ask did not take.
+ */
+export function stuckCued(
+  applied: AppliedSlot | null,
+  videoId: string,
+  intent: SlotIntent,
+  ytState: number | null,
+): boolean {
+  if (intent !== 'playing') return false
+  if (!applied || applied.videoId !== videoId || applied.intent !== 'playing') {
+    return false
+  }
+  return ytState !== YT_PLAYING && ytState !== YT_BUFFERING
+}
 /**
  * The commands that take one slot from what was applied to it to what it should
  * be doing, given the length of the track it holds.
