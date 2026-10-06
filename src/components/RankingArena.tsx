@@ -689,6 +689,16 @@ export default function RankingArena() {
         {/* Controls. A visible row on desktop; on a phone the same icons sit in
             a column under a menu button that turns into a close cross. Restart is
             destructive, so it confirms in a dialog rather than acting outright. */}
+        {/* Tapping anywhere else puts the phone menu away. Sits below the
+            controls so the buttons still take their own taps. */}
+        {showControls && (
+          <div
+            className='fixed inset-0 z-40 md:hidden'
+            onClick={() => setShowControls(false)}
+            aria-hidden
+          />
+        )}
+
         <div className='absolute top-4 left-4 z-50'>
           <div className='hidden md:flex items-center gap-2'>
             {controls.map((control) => (
