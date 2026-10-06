@@ -34,7 +34,11 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a; /* slate-900 */
+  /* Form controls, scrollbars and the like follow this, not the OS preference:
+     the app is light-only now, so a dark-mode desktop must not paint black
+     chrome behind white panels. */
+  color-scheme: light;
 }
 
 @theme inline {
@@ -58,12 +62,8 @@
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* The app is deliberately light-only. A `prefers-color-scheme: dark` flip here
+   would repaint the page black underneath white panels for dark-mode desktops. */
 
 body {
   background: var(--background);
