@@ -1,5 +1,9 @@
 'use client'
 
+/* eslint-disable @next/next/no-img-element -- The preview is a blob URL from the
+   canvas, which next/image could not optimise. Optimisation is off app-wide; see
+   next.config.ts. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Download, Loader2, Share2, Sliders, X } from 'lucide-react'
 import type { Track, SongRanking, ShareCardConfig } from '../lib/types'
