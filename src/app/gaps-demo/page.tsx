@@ -3,8 +3,9 @@
  *
  * The settled treatment: bands plus score-coloured cards at tint 0.12. This
  * round varies how many songs are in the list, to see how it holds up as it
- * grows. Rows are a fixed height and the list scrolls, like the real sidebar, so
- * the three columns are directly comparable.
+ * grows. Rows divide whatever height is going between them, with a 48px floor:
+ * short lists fill the screen, long lists hit the floor and scroll, like the
+ * real sidebar.
  *
  * Scores are invented on the +1 to -1 scale. Some songs have no picks, which puts
  * them at 0 like the real ranker. Delete this route once the lengths are checked.
@@ -108,13 +109,15 @@ function RankRow({ row, rank }: { row: Row; rank: number }) {
 
   return (
     <div
-      className={`flex shrink-0 items-center gap-2 overflow-hidden rounded-lg border p-2 shadow-sm ${
+      className={`flex items-center gap-2 overflow-hidden rounded-lg border p-2 shadow-sm ${
         unmeasured
           ? 'border-slate-200/60 bg-slate-100/80'
           : `border-slate-200/80 ${rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''}`
       }`}
       style={{
-        height: 48,
+        flexGrow: 1,
+        flexBasis: 0,
+        minHeight: 48,
         backgroundColor: unmeasured ? undefined : scoreColor(row.score, TINT),
       }}
     >
