@@ -769,13 +769,17 @@ function DashboardContent() {
             </>
           )}
 
-          <button
-            onClick={handleStartRanking}
-            disabled={!canStart}
-            className='mt-4 w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40'
-          >
-            {canStart ? `Start ranking ${draft.length} songs` : 'Start ranking'}
-          </button>
+          {/* Sticky rather than in flow: a long list is exactly when the button is
+              furthest away, and the list is the point of this screen. */}
+          <div className='sticky bottom-4 z-20 mt-4 rounded-2xl border border-slate-200/60 bg-white/90 p-1 shadow-sm backdrop-blur-sm'>
+            <button
+              onClick={handleStartRanking}
+              disabled={!canStart}
+              className='w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40'
+            >
+              {canStart ? `Start ranking ${draft.length} songs` : 'Start ranking'}
+            </button>
+          </div>
         </section>
 
         <p className='mt-6 text-center text-xs text-slate-400'>
