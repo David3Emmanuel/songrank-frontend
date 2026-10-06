@@ -9,7 +9,7 @@ import React, {
   useMemo,
 } from 'react'
 import { PlaylistRanker } from '../lib/PlaylistRanker'
-import type { Track, Feedback, RankerState, SongRanking } from '../lib/types'
+import type { Track, Feedback, SongRanking } from '../lib/types'
 
 interface RankerContextValue {
   ranker: PlaylistRanker | null

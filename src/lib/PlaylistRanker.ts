@@ -178,7 +178,7 @@ export class PlaylistRanker {
     try {
       const beta = solve(ridge, XtWy)
       return beta.to1DArray()
-    } catch (error) {
+    } catch {
       // Fallback: use pseudo-inverse if solve fails
       const ridgeInv = inverse(ridge)
       const beta = ridgeInv.mmul(XtWy)

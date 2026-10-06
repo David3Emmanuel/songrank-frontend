@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getDuelComparison } from '../lib/duelApi'
 import type { DuelComparison, Track } from '../lib/types'
 import TrackArtwork from './TrackArtwork'
@@ -19,11 +19,9 @@ export default function DuelComparisonView({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadComparison()
-  }, [duelId])
-
-  const loadComparison = async () => {
+  // Declared before the effect that calls it, and memoised on the duel it reads,
+  // so the effect can name it as a dependency rather than reaching past it.
+  const loadComparison = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
@@ -39,7 +37,11 @@ export default function DuelComparisonView({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [duelId])
+
+  useEffect(() => {
+    void loadComparison()
+  }, [loadComparison])
 
   if (isLoading) {
     return (

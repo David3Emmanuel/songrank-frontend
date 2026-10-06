@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, cloneElement } from 'react'
+import { useState, useRef, useEffect, useCallback, cloneElement } from 'react'
 import * as React from 'react'
 import { Minus, Heart, Music, ArrowDown } from 'lucide-react'
 import type { SongCardProps, InteractionState } from './SongCard'
@@ -67,6 +67,39 @@ export default function SwipeComparison({
   const onTouchStart = (e: React.TouchEvent) =>
     handleStart(e.touches[0].clientX, e.touches[0].clientY)
 
+  /**
+   * Pushes the current drag onto both cards.
+   *
+   * Declared above the drag handlers rather than below them: they call it, and a
+   * helper used before it is declared reads as though it could change underneath
+   * the caller.
+   */
+  const updateCardStates = (x: number, y: number) => {
+    const progress = Math.min(Math.abs(x) / MAX_DRAG_X, 1)
+    const direction = x < 0 ? 'left' : x > 0 ? 'right' : 'center'
+
+    const leftState: InteractionState = {
+      position: { x, y },
+      zone,
+      progress,
+      direction,
+      isActive: isDragging || progress > 0,
+      side: 'left',
+    }
+
+    const rightState: InteractionState = {
+      position: { x, y },
+      zone,
+      progress,
+      direction,
+      isActive: isDragging || progress > 0,
+      side: 'right',
+    }
+
+    leftCardUpdateRef.current?.(leftState)
+    rightCardUpdateRef.current?.(rightState)
+  }
+
   const handleMove = (clientX: number, clientY: number) => {
     if (!isDragging) return
 
@@ -89,7 +122,6 @@ export default function SwipeComparison({
   const handleEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-
     // Map zone to Feedback type
     let vote: Feedback | null = null
 
@@ -133,33 +165,17 @@ export default function SwipeComparison({
     }
   }
 
+  // The global mouse and touch listeners are attached once per drag, so they call
+  // the newest handler through a ref rather than being torn down and rebuilt
+  // whenever the handler's identity changes.
+  const handleEndRef = useRef(handleEnd)
+  useEffect(() => {
+    handleEndRef.current = handleEnd
+  })
+
+  
+
   // --- LOGIC HELPERS ---
-
-  const updateCardStates = (x: number, y: number) => {
-    const progress = Math.min(Math.abs(x) / MAX_DRAG_X, 1)
-    const direction = x < 0 ? 'left' : x > 0 ? 'right' : 'center'
-
-    const leftState: InteractionState = {
-      position: { x, y },
-      zone,
-      progress,
-      direction,
-      isActive: isDragging || progress > 0,
-      side: 'left',
-    }
-
-    const rightState: InteractionState = {
-      position: { x, y },
-      zone,
-      progress,
-      direction,
-      isActive: isDragging || progress > 0,
-      side: 'right',
-    }
-
-    leftCardUpdateRef.current?.(leftState)
-    rightCardUpdateRef.current?.(rightState)
-  }
 
   const determineZone = (x: number, y: number) => {
     const absX = Math.abs(x)
@@ -206,9 +222,26 @@ export default function SwipeComparison({
         : 'rgba(0,0,0,0)'
   }
 
+  // The cards hand their update handler back through these, which they call from
+  // an effect. Memoised so the registration is a stable prop rather than a fresh
+  // closure on every render, and so nothing writes a ref while rendering.
+  const registerLeftCard = useCallback(
+    (handler: (state: InteractionState) => void) => {
+      leftCardUpdateRef.current = handler
+    },
+    [],
+  )
+
+  const registerRightCard = useCallback(
+    (handler: (state: InteractionState) => void) => {
+      rightCardUpdateRef.current = handler
+    },
+    [],
+  )
+
   useEffect(() => {
     const handleGlobalEnd = () => {
-      if (isDragging) handleEnd()
+      if (isDragging) handleEndRef.current()
     }
 
     window.addEventListener('mouseup', handleGlobalEnd)
@@ -218,7 +251,7 @@ export default function SwipeComparison({
       window.removeEventListener('mouseup', handleGlobalEnd)
       window.removeEventListener('touchend', handleGlobalEnd)
     }
-  }, [isDragging, zone])
+  }, [isDragging])
 
   return (
     <div
@@ -265,27 +298,23 @@ export default function SwipeComparison({
       <div className='flex-1 flex items-center justify-center relative w-full max-w-4xl mx-auto px-4'>
         {/* LEFT CARD */}
         <div className='absolute left-[5%] md:left-[15%]'>
+          {/* eslint-disable-next-line react-hooks/refs -- the card calls this from
+              its own effect, so no ref is written while rendering. The compiler
+              cannot see across that boundary. */}
           {cloneElement(leftCard, {
             side: 'left' as const,
             accentColor: leftCardAccent,
-            registerUpdateHandler: (
-              handler: (state: InteractionState) => void,
-            ) => {
-              leftCardUpdateRef.current = handler
-            },
+            registerUpdateHandler: registerLeftCard,
           })}
         </div>
 
         {/* RIGHT CARD */}
         <div className='absolute right-[5%] md:right-[15%]'>
+          {/* eslint-disable-next-line react-hooks/refs -- as above */}
           {cloneElement(rightCard, {
             side: 'right' as const,
             accentColor: rightCardAccent,
-            registerUpdateHandler: (
-              handler: (state: InteractionState) => void,
-            ) => {
-              rightCardUpdateRef.current = handler
-            },
+            registerUpdateHandler: registerRightCard,
           })}
         </div>
 

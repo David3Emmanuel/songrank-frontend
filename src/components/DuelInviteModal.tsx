@@ -68,7 +68,7 @@ export default function DuelInviteModal({
           text: `Can you match my music taste? Rank these ${tracks.length} songs and let's compare!`,
           url: shareUrl,
         })
-      } catch (error) {
+      } catch {
         // User cancelled or share failed
         console.log('Share cancelled or failed')
       }

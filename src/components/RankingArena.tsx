@@ -228,36 +228,7 @@ export default function RankingArena() {
   const [showControls, setShowControls] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
 
-  const controls = [
-    {
-      key: 'pause',
-      label: isPaused ? 'Play' : 'Pause',
-      onClick: () => setIsPaused((value) => !value),
-      disabled: false,
-      icon: isPaused ? <Play size={20} /> : <Pause size={20} />,
-    },
-    {
-      key: 'undo',
-      label: 'Undo last pick',
-      onClick: undoLastVote,
-      disabled: !canUndo,
-      icon: <Undo2 size={20} />,
-    },
-    {
-      key: 'restart',
-      label: 'Start over',
-      onClick: () => setShowRestartConfirm(true),
-      disabled: false,
-      icon: <RotateCcw size={20} />,
-    },
-    {
-      key: 'results',
-      label: 'See my results',
-      onClick: forceFinish,
-      disabled: false,
-      icon: <ListChecks size={20} />,
-    },
-  ]
+
   const [stopSuggestionDismissed, setStopSuggestionDismissed] = useState(false)
 
   // Two reasons for the whole pool to go quiet: the pause menu is open, or the
@@ -518,25 +489,63 @@ export default function RankingArena() {
   )
 
   // ── Restart / undo pool reset ───────────────────────────────────────────────
-  // When the ranker restarts (completedComparisons drops back to 0 while a
-  // pair is present), the pool must be re-initialised.
-  const prevCompletedRef = useRef(completedComparisons)
-  useEffect(() => {
-    if (
-      completedComparisons === 0 &&
-      prevCompletedRef.current > 0 &&
-      currentPair
-    ) {
-      initialized.current = false
-      prevPairRef.current = null
-      prevCompletedInTransitionRef.current = 0
-      setActiveGroup(0)
-      const empty: SlotState[] = [EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]
-      slotsRef.current = empty
-      setSlots(empty)
-    }
-    prevCompletedRef.current = completedComparisons
-  }, [completedComparisons, currentPair, setActiveGroup])
+  /**
+   * Throws the pool away for a fresh session.
+   *
+   * Not just a re-cue: a restarted session can open with the same two videos, and
+   * a player that already holds one would resume it part way through.
+   *
+   * Called from the two paths that can empty a session, restart and undo, rather
+   * than from an effect watching the count. Nothing else reduces it, and setting
+   * state from an effect costs a second render that the reconcile below could not
+   * use anyway.
+   */
+  const resetPool = useCallback(() => {
+    initialized.current = false
+    prevPairRef.current = null
+    prevCompletedInTransitionRef.current = 0
+    setActiveGroup(0)
+    const empty: SlotState[] = [EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]
+    slotsRef.current = empty
+    setSlots(empty)
+  }, [setActiveGroup])
+
+  /** Undoing the last remaining pick empties the session, so reset the pool too. */
+  const undo = useCallback(() => {
+    if (completedComparisons <= 1) resetPool()
+    undoLastVote()
+  }, [completedComparisons, resetPool, undoLastVote])
+
+  const controls = [
+    {
+      key: 'pause',
+      label: isPaused ? 'Play' : 'Pause',
+      onClick: () => setIsPaused((value) => !value),
+      disabled: false,
+      icon: isPaused ? <Play size={20} /> : <Pause size={20} />,
+    },
+    {
+      key: 'undo',
+      label: 'Undo last pick',
+      onClick: undo,
+      disabled: !canUndo,
+      icon: <Undo2 size={20} />,
+    },
+    {
+      key: 'restart',
+      label: 'Start over',
+      onClick: () => setShowRestartConfirm(true),
+      disabled: false,
+      icon: <RotateCcw size={20} />,
+    },
+    {
+      key: 'results',
+      label: 'See my results',
+      onClick: forceFinish,
+      disabled: false,
+      icon: <ListChecks size={20} />,
+    },
+  ]
 
   // 5. Reconcile — the only place the players are told what to do.
   //    Runs last, once the effects above have settled the pool's shape for this
@@ -621,12 +630,12 @@ export default function RankingArena() {
       if (e.key === 'Escape') setIsPaused((v) => !v)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && canUndo) {
         e.preventDefault()
-        undoLastVote()
+        undo()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [canUndo, undoLastVote])
+  }, [canUndo, undo])
 
   if (!currentPair) return null
 
@@ -701,6 +710,9 @@ export default function RankingArena() {
 
         <div className='absolute top-4 left-4 z-50'>
           <div className='hidden md:flex items-center gap-2'>
+            {/* eslint-disable-next-line react-hooks/refs -- these handlers run from
+                a tap, not while rendering. The compiler cannot see that through the
+                array, so it assumes the worst. */}
             {controls.map((control) => (
               <ArenaControl
                 key={control.key}
@@ -728,6 +740,7 @@ export default function RankingArena() {
             </button>
 
             {showControls &&
+              // eslint-disable-next-line react-hooks/refs -- as above
               controls.map((control) => (
                 <ArenaControl
                   key={control.key}
@@ -825,6 +838,7 @@ export default function RankingArena() {
                 <button
                   onClick={() => {
                     restartRanker()
+                    resetPool()
                     setShowRestartConfirm(false)
                     setIsPaused(false)
                   }}
