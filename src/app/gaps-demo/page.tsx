@@ -1,11 +1,15 @@
 /**
  * THROWAWAY demo. Not linked from anywhere and not part of the app.
  *
- * The chosen treatment: bands (3) plus score-coloured cards (5), at three tint
- * strengths so the strength can be picked. Scores are invented on the +1 to -1
- * scale the colour assumes. A row nobody has picked stays grey.
+ * Bands plus score-coloured cards are settled: tint 0.12 on every column. This
+ * round varies how a song's score is expressed as LENGTH, three ways:
  *
- * Delete this route once the strength is chosen.
+ *   width  the card itself is shorter for a worse song
+ *   bar    the card is full width, with a length bar inside it
+ *   indent the card's left edge moves right for a worse song
+ *
+ * Scores are invented on the +1 to -1 scale. A row nobody has picked is grey and
+ * carries no length. Delete this route once a variant is chosen.
  */
 
 import TrackArtwork from '../../components/TrackArtwork'
@@ -48,6 +52,9 @@ const ROWS: Row[] = [
   },
 ]
 
+const TINT = 0.12
+const MIN_LENGTH = 45
+
 const GREEN = [16, 185, 129]
 const AMBER = [245, 158, 11]
 const RED = [244, 63, 94]
@@ -64,98 +71,117 @@ function scoreColor(score: number, alpha: number): string {
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`
 }
 
-// Separation between neighbours. A boundary only counts if the row below it has
-// actually been picked.
+/** How far up the scale a song sits, 0 at -1 and 1 at +1. */
+const strength = (score: number) => Math.min(1, Math.max(0, (score + 1) / 2))
+
+/** Length as a percentage of the full row, from the score. */
+const lengthPercent = (row: Row) =>
+  row.picks === 0 ? 100 : MIN_LENGTH + strength(row.score) * (100 - MIN_LENGTH)
+
 const GAPS = ROWS.map((row, i) => (i === 0 ? 0 : ROWS[i - 1].score - row.score))
 const MAX_GAP = Math.max(...GAPS)
 const BAND_GAP = MAX_GAP * 0.5
 const startsBand = (i: number) => i > 0 && ROWS[i].picks > 0 && GAPS[i] >= BAND_GAP
 
+type LengthMode = 'width' | 'bar' | 'indent'
+
 function RankRow({
   row,
   rank,
-  alpha,
+  mode,
 }: {
   row: Row
   rank: number
-  alpha: number
+  mode: LengthMode
 }) {
   const unmeasured = row.picks === 0
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+  const length = lengthPercent(row)
+
+  const outerStyle: React.CSSProperties = {
+    flexGrow: 1,
+    flexBasis: 0,
+    minHeight: 48,
+    backgroundColor: unmeasured ? undefined : scoreColor(row.score, TINT),
+  }
+  if (!unmeasured && mode === 'width') outerStyle.width = `${length}%`
+  if (!unmeasured && mode === 'indent') {
+    outerStyle.marginLeft = `${100 - length}%`
+  }
 
   return (
     <div
-      className={`relative flex items-center gap-2 overflow-hidden rounded-lg border p-2 shadow-sm ${
+      className={`flex flex-col justify-center overflow-hidden rounded-lg border p-2 shadow-sm ${
         unmeasured
           ? 'border-slate-200/60 bg-slate-100/80'
-          : `border-slate-200/80 bg-white/70 ${rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''}`
+          : `border-slate-200/80 ${rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''}`
       }`}
-      style={{
-        flexGrow: 1,
-        flexBasis: 0,
-        minHeight: 48,
-        backgroundColor: unmeasured ? undefined : scoreColor(row.score, alpha),
-      }}
+      style={outerStyle}
     >
-      <div className='w-8 shrink-0 text-center'>
-        {medal && !unmeasured ? (
-          <span className='text-xl'>{medal}</span>
-        ) : (
-          <span
-            className={`text-sm font-semibold ${
-              unmeasured ? 'text-slate-300' : 'text-slate-500'
+      <div className='flex items-center gap-2'>
+        <div className='w-8 shrink-0 text-center'>
+          {medal && !unmeasured ? (
+            <span className='text-xl'>{medal}</span>
+          ) : (
+            <span
+              className={`text-sm font-semibold ${
+                unmeasured ? 'text-slate-300' : 'text-slate-500'
+              }`}
+            >
+              #{rank}
+            </span>
+          )}
+        </div>
+
+        <div
+          className={`h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100/80 ${
+            unmeasured ? 'opacity-60' : ''
+          }`}
+        >
+          <TrackArtwork src={row.cover} alt={row.title} />
+        </div>
+
+        <div className='min-w-0 flex-1'>
+          <h4
+            className={`truncate text-sm leading-tight font-semibold ${
+              unmeasured ? 'text-slate-400' : 'text-slate-900'
             }`}
           >
-            #{rank}
-          </span>
-        )}
-      </div>
+            {row.title}
+          </h4>
+          <p
+            className={`truncate text-xs leading-tight ${
+              unmeasured ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
+            {row.artist}
+          </p>
+        </div>
 
-      <div
-        className={`h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100/80 ${
-          unmeasured ? 'opacity-60' : ''
-        }`}
-      >
-        <TrackArtwork src={row.cover} alt={row.title} />
-      </div>
-
-      <div className='min-w-0 flex-1'>
-        <h4
-          className={`truncate text-sm leading-tight font-semibold ${
-            unmeasured ? 'text-slate-400' : 'text-slate-900'
-          }`}
-        >
-          {row.title}
-        </h4>
-        <p
-          className={`truncate text-xs leading-tight ${
-            unmeasured ? 'text-slate-400' : 'text-slate-600'
-          }`}
-        >
-          {row.artist}
-        </p>
-      </div>
-
-      <div className='shrink-0 text-right'>
-        <div
-          className={`text-xs font-bold ${
-            unmeasured ? 'text-slate-300' : 'text-slate-700'
-          }`}
-        >
-          {unmeasured ? '–' : row.score.toFixed(2)}
+        <div className='shrink-0 text-right'>
+          <div
+            className={`text-xs font-bold ${
+              unmeasured ? 'text-slate-300' : 'text-slate-700'
+            }`}
+          >
+            {unmeasured ? '–' : row.score.toFixed(2)}
+          </div>
         </div>
       </div>
+
+      {mode === 'bar' && !unmeasured && (
+        <div className='mt-1.5 h-0.5 w-full rounded-full bg-slate-900/10'>
+          <div
+            className='h-0.5 rounded-full bg-slate-900/30'
+            style={{ width: `${length}%` }}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-function Sidebar({
-  label,
-  alpha,
-}: {
-  label: string
-  alpha: number
-}) {
+function Sidebar({ label, mode }: { label: string; mode: LengthMode }) {
   return (
     <div className='flex h-full min-w-0 flex-col overflow-hidden border-l border-slate-200/80 bg-white/70 backdrop-blur-md'>
       <div className='border-b border-slate-200 p-4'>
@@ -175,7 +201,7 @@ function Sidebar({
                 <div className='h-px w-full bg-slate-300' />
               </div>
             )}
-            <RankRow row={row} rank={i + 1} alpha={alpha} />
+            <RankRow row={row} rank={i + 1} mode={mode} />
           </div>
         ))}
       </div>
@@ -190,9 +216,9 @@ function Sidebar({
 export default function GapsDemoPage() {
   return (
     <main className='grid h-screen grid-cols-3 bg-gradient-to-b from-white to-sky-50 text-slate-900'>
-      <Sidebar label='0.06' alpha={0.06} />
-      <Sidebar label='0.09' alpha={0.09} />
-      <Sidebar label='0.12' alpha={0.12} />
+      <Sidebar label='width' mode='width' />
+      <Sidebar label='bar' mode='bar' />
+      <Sidebar label='indent' mode='indent' />
     </main>
   )
 }
