@@ -274,12 +274,6 @@ function DashboardContent() {
             </>
           )}
 
-          {draft.length === 0 && (
-            <p className='mt-5 border-t border-slate-200 pt-4 text-center text-sm text-slate-500'>
-              Add at least two songs and the ranking can start.
-            </p>
-          )}
-
           <button
             onClick={handleStartRanking}
             disabled={!canStart}
