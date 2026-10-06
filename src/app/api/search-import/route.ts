@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { YouTubeAdapter, YouTubeApiError } from '../../../lib/adapters/youtube'
 import { YouTubeMusicAdapter } from '../../../lib/adapters/youtubeMusic'
+import { createTtlCache, normalizeQuery } from '../../../lib/ttlCache'
 
 /** Results fetched per query. Both endpoints cap around this anyway. */
 const RESULT_COUNT = 25
+
+/**
+ * Typing ahead means the same query arriving more than once, and the upstream
+ * call costs around a second, so a short-lived cache makes repeats free. Lives
+ * with the server process, which is all this needs.
+ */
+const searchCache = createTtlCache<Awaited<ReturnType<YouTubeMusicAdapter['searchCollection']>>>({
+  ttlMs: 10 * 60 * 1000,
+  maxEntries: 50,
+})
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get('q')?.trim()
@@ -13,6 +24,12 @@ export async function GET(request: NextRequest) {
       { error: 'Type something to search for and give it another go.' },
       { status: 400 },
     )
+  }
+
+  const cacheKey = normalizeQuery(query)
+  const cached = searchCache.get(cacheKey)
+  if (cached) {
+    return NextResponse.json(cached, { headers: { 'x-search-cache': 'hit' } })
   }
 
   // No API key is needed to search: this goes through the music web player's own
@@ -34,14 +51,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (apiKey) {
-      const tracks = await new YouTubeAdapter(apiKey).fillDurations(
-        collection.tracks,
-      )
-      return NextResponse.json({ ...collection, tracks })
-    }
+    const filled = apiKey
+      ? {
+          ...collection,
+          tracks: await new YouTubeAdapter(apiKey).fillDurations(
+            collection.tracks,
+          ),
+        }
+      : collection
 
-    return NextResponse.json(collection)
+    searchCache.set(cacheKey, filled)
+    return NextResponse.json(filled, { headers: { 'x-search-cache': 'miss' } })
   } catch (err) {
     if (err instanceof YouTubeApiError) {
       // The reason is logged rather than shown: it is written for developers.

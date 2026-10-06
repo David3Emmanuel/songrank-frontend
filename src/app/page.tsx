@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RankerProvider, useRanker } from '../context/RankerContext'
 import RankingArena from '../components/RankingArena'
 import ResultsView from '../components/ResultsView'
@@ -124,11 +124,16 @@ function DashboardContent() {
     initializeRanker(draft, draftName || 'My ranking')
   }
 
-  const handleSearch = async (event: React.FormEvent) => {
-    event.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed || isSearching) return
+  /** The newest search wins: a slower reply arriving late is dropped. */
+  const searchIdRef = useRef(0)
+  const lastTermRef = useRef('')
 
+  const runSearch = useCallback(async (term: string) => {
+    const trimmed = term.trim()
+    if (trimmed.length < 2 || trimmed === lastTermRef.current) return
+
+    lastTermRef.current = trimmed
+    const searchId = ++searchIdRef.current
     setIsSearching(true)
     setError(null)
 
@@ -137,6 +142,7 @@ function DashboardContent() {
         `/api/search-import?q=${encodeURIComponent(trimmed)}`,
       )
       const data = await res.json()
+      if (searchId !== searchIdRef.current) return
 
       if (!res.ok) throw new Error(data.error ?? 'Search failed')
       if (!Array.isArray(data.tracks) || data.tracks.length === 0) {
@@ -151,17 +157,30 @@ function DashboardContent() {
         duplicates: Number(data.duplicates ?? 0),
         filtered: Number(data.filtered ?? 0),
       })
-      setQuery('')
     } catch (err) {
+      if (searchId !== searchIdRef.current) return
+      // Let the same words be tried again after a failure.
+      lastTermRef.current = ''
       setError(
         err instanceof Error
           ? err.message
           : 'That search did not work. Give it another go in a moment.',
       )
     } finally {
-      setIsSearching(false)
+      if (searchId === searchIdRef.current) setIsSearching(false)
     }
-  }
+  }, [])
+
+  // Search as they type: wait for a pause, then ask. Enter skips the wait.
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) return
+
+    const timer = setTimeout(() => {
+      void runSearch(trimmed)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [query, runSearch])
 
   // Show results if complete
   if (isComplete) {
@@ -190,21 +209,23 @@ function DashboardContent() {
 
         {/* Builder: search and import are tools that fill one list. */}
         <section className='animate-rise mt-8 rounded-3xl border border-slate-200/80 bg-white/70 p-4 shadow-sm backdrop-blur-md md:p-5'>
-          <form onSubmit={handleSearch} className='flex gap-2'>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void runSearch(query)
+            }}
+            className='space-y-2'
+          >
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder='Add songs: an artist or a title'
               aria-label='Search for songs to add'
-              className='min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+              className='w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
             />
-            <button
-              type='submit'
-              disabled={!query.trim() || isSearching}
-              className='rounded-2xl bg-emerald-500 px-5 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40'
-            >
-              {isSearching ? 'Finding…' : 'Add'}
-            </button>
+            {isSearching && (
+              <p className='px-1 text-xs text-slate-400'>Finding…</p>
+            )}
           </form>
 
           <div className='mt-3 flex flex-wrap items-center gap-2'>
