@@ -2,7 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { draftEstimate, LONG_LIST_SONGS } from '../src/lib/sessionProgress.ts'
-import { formatDurationMs, smallerThumbnailUrl } from '../src/lib/videoMetadata.ts'
+import {
+  formatDurationMs,
+  largerThumbnailUrl,
+  smallerThumbnailUrl,
+} from '../src/lib/videoMetadata.ts'
 
 test('a draft list is priced in picks using the measured rate', () => {
   // 10 songs was where the ending test naturally stopped, at 15 picks.
@@ -70,4 +74,27 @@ test('a thumbnail that is already small is left alone, and so is anything else',
   )
   assert.equal(smallerThumbnailUrl(null), undefined)
   assert.equal(smallerThumbnailUrl(''), undefined)
+})
+
+test('a larger version is asked for only where it exists', () => {
+  // 480x360 and 640x480 are 4:3 with black bars baked in, so the clean 720p one
+  // is the only step up worth taking.
+  assert.equal(
+    largerThumbnailUrl('https://i.ytimg.com/vi/abc/mqdefault.jpg'),
+    'https://i.ytimg.com/vi/abc/maxresdefault.jpg',
+  )
+  // Album art carries its size in the URL.
+  assert.equal(
+    largerThumbnailUrl(
+      'https://yt3.googleusercontent.com/abc=w120-h120-l90-rj',
+    ),
+    'https://yt3.googleusercontent.com/abc=w544-h544-l90-rj',
+  )
+})
+
+test('there is nothing to ask for when the source has no bigger version', () => {
+  assert.equal(largerThumbnailUrl('https://i.scdn.co/image/ab67616d'), undefined)
+  assert.equal(largerThumbnailUrl('https://i.ytimg.com/vi/abc/maxresdefault.jpg'), undefined)
+  assert.equal(largerThumbnailUrl(null), undefined)
+  assert.equal(largerThumbnailUrl(undefined), undefined)
 })

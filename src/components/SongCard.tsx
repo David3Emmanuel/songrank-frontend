@@ -119,6 +119,7 @@ export default function SongCard({
           alt={track.title}
           fill
           className='object-cover'
+          higherQuality
         />
 
         {/* Loading Spinner */}

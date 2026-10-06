@@ -146,3 +146,31 @@ export function smallerThumbnailUrl(
 
   return `${match[1]}/${variant}.jpg`
 }
+
+/**
+ * The same artwork at a size worth showing large, or undefined when there is no
+ * bigger version to ask for.
+ *
+ * Video thumbnails go up to `maxresdefault`, which is a clean 16:9. The
+ * in-between variants are 4:3 with black bars baked in, so they would look worse
+ * than what they replace once cropped. Album art served from Google's image host
+ * carries its size in the URL, and asking for a larger square works.
+ */
+export function largerThumbnailUrl(
+  url: string | null | undefined,
+): string | undefined {
+  if (!url) return undefined
+
+  const video = /^(https?:\/\/i\.ytimg\.com\/vi\/[^/?#]+)\/[^/?#]+/.exec(url)
+  if (video) {
+    const bigger = `${video[1]}/maxresdefault.jpg`
+    return bigger === url ? undefined : bigger
+  }
+
+  const albumArt = /^(https?:\/\/[^/]*googleusercontent\.com\/[^=]+)=w\d+-h\d+/.exec(
+    url,
+  )
+  if (albumArt) return `${albumArt[1]}=w544-h544-l90-rj`
+
+  return undefined
+}

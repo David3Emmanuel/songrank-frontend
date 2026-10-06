@@ -119,7 +119,11 @@ export default function ResultsView() {
                       className='overflow-hidden rounded-lg bg-white shadow-sm'
                       style={{ width: cover, height: cover }}
                     >
-                      <TrackArtwork src={track.coverImage} alt={track.title} />
+                      <TrackArtwork
+                        src={track.coverImage}
+                        alt={track.title}
+                        higherQuality
+                      />
                     </div>
                   ) : (
                     <div
