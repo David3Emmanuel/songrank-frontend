@@ -6,7 +6,10 @@ import RankingArena from '../components/RankingArena'
 import ResultsView from '../components/ResultsView'
 import LandingBackground from '../components/LandingBackground'
 import YouTubeImportModal from '../components/YouTubeImportModal'
-import { Music2 } from 'lucide-react'
+import TrackArtwork from '../components/TrackArtwork'
+import { draftEstimate } from '../lib/sessionProgress'
+import { formatDurationMs } from '../lib/videoMetadata'
+import { Music2, X } from 'lucide-react'
 import type { Track } from '../lib/types'
 
 // Demo tracks for testing
@@ -84,13 +87,33 @@ function DashboardContent() {
   const [query, setQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** The list being assembled. Nothing is ranked until Start is pressed. */
+  const [draft, setDraft] = useState<Track[]>([])
+  const [draftName, setDraftName] = useState('')
 
-  const handleStartDemo = () => {
-    initializeRanker(DEMO_TRACKS, 'Demo Mix')
+  const estimate = draftEstimate(draft.length)
+  const canStart = draft.length > 1
+
+  /**
+   * Adds songs to the draft, skipping any already in it.
+   *
+   * Appending rather than replacing means a search can top up a pasted list,
+   * and Clear list is there for when that was not what was wanted.
+   */
+  const addToDraft = (incoming: Track[], name?: string) => {
+    setDraft((current) => {
+      const seen = new Set(current.map((track) => track.id))
+      return [...current, ...incoming.filter((track) => !seen.has(track.id))]
+    })
+    if (name) setDraftName((current) => current || name)
   }
 
-  const handleYouTubeImport = (tracks: Track[], name?: string) => {
-    initializeRanker(tracks, name || 'YouTube Playlist')
+  const removeFromDraft = (id: string) => {
+    setDraft((current) => current.filter((track) => track.id !== id))
+  }
+
+  const handleStartRanking = () => {
+    initializeRanker(draft, draftName || 'My ranking')
   }
 
   const handleSearch = async (event: React.FormEvent) => {
@@ -112,7 +135,8 @@ function DashboardContent() {
         throw new Error(`Not enough songs found for “${trimmed}”`)
       }
 
-      initializeRanker(data.tracks as Track[], data.name ?? trimmed)
+      addToDraft(data.tracks as Track[], data.name ?? trimmed)
+      setQuery('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -134,57 +158,138 @@ function DashboardContent() {
     <div className='relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50 text-slate-900'>
       <LandingBackground />
 
-      <div className='relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-16'>
+      <div className='relative mx-auto w-full max-w-2xl px-6 py-12'>
         <header className='animate-rise text-center'>
-          <div className='mx-auto mb-6 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-white shadow-lg shadow-emerald-500/25'>
-            <Music2 size={36} />
+          <div className='mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-white shadow-lg shadow-emerald-500/25'>
+            <Music2 size={28} />
           </div>
-          <h1 className='text-5xl font-bold tracking-tight'>SongRank</h1>
-          <p className='mt-3 text-lg text-slate-600'>
+          <h1 className='text-4xl font-bold tracking-tight'>SongRank</h1>
+          <p className='mt-2 text-slate-600'>
             Two songs at a time. Your real ranking at the end.
           </p>
         </header>
 
-        <div className='animate-rise mt-10 space-y-3'>
-          <button
-            onClick={handleStartDemo}
-            className='w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-slate-800'
-          >
-            Start with 5 songs
-          </button>
-
+        {/* Builder: search and import are tools that fill one list. */}
+        <section className='animate-rise mt-8 rounded-3xl border border-slate-200/80 bg-white/70 p-4 shadow-sm backdrop-blur-md md:p-5'>
           <form onSubmit={handleSearch} className='flex gap-2'>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder='An artist or a song title'
-              aria-label='Search for songs to rank'
-              className='min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none backdrop-blur transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+              placeholder='Add songs: an artist or a title'
+              aria-label='Search for songs to add'
+              className='min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
             />
             <button
               type='submit'
               disabled={!query.trim() || isSearching}
               className='rounded-2xl bg-emerald-500 px-5 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40'
             >
-              {isSearching ? 'Finding…' : 'Find 25'}
+              {isSearching ? 'Finding…' : 'Add'}
             </button>
           </form>
 
+          <div className='mt-3 flex flex-wrap items-center gap-2'>
+            <button
+              onClick={() => setShowYouTubeImport(true)}
+              className='rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-white'
+            >
+              Paste a playlist link
+            </button>
+            <button
+              onClick={() => addToDraft(DEMO_TRACKS, 'Demo Mix')}
+              className='rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-white'
+            >
+              Try 5 songs
+            </button>
+            {draft.length > 0 && (
+              <button
+                onClick={() => {
+                  setDraft([])
+                  setDraftName('')
+                }}
+                className='ml-auto rounded-2xl px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:text-rose-600'
+              >
+                Clear list
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <p className='mt-3 text-sm text-rose-600'>{error}</p>
+          )}
+
+          {/* The list itself */}
+          {draft.length > 0 && (
+            <>
+              <div className='mt-5 flex items-baseline justify-between gap-3 border-t border-slate-200 pt-4'>
+                <p className='font-semibold'>
+                  {draft.length} song{draft.length !== 1 ? 's' : ''}
+                </p>
+                {canStart && (
+                  <p className='text-xs text-slate-500'>
+                    about {estimate.picks} picks, usually{' '}
+                    {estimate.minutesLow} to {estimate.minutesHigh} minutes
+                  </p>
+                )}
+              </div>
+
+              {estimate.isLong && (
+                <p className='mt-2 text-xs text-amber-600'>
+                  That is a long list. A shorter one is easier to finish, and easy
+                  to add to later.
+                </p>
+              )}
+
+              <ul className='mt-3 max-h-[45vh] space-y-1.5 overflow-y-auto pr-1'>
+                {draft.map((track) => {
+                  const duration = formatDurationMs(track.durationMs)
+                  return (
+                    <li
+                      key={track.id}
+                      className='flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/70 p-2'
+                    >
+                      <div className='h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100 text-slate-300'>
+                        <TrackArtwork src={track.coverImage} alt={track.title} />
+                      </div>
+                      <div className='min-w-0 flex-1'>
+                        <p className='truncate text-sm leading-tight font-semibold'>
+                          {track.title}
+                        </p>
+                        <p className='truncate text-xs leading-tight text-slate-500'>
+                          {track.artist}
+                          {duration ? ` · ${duration}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeFromDraft(track.id)}
+                        aria-label={`Remove ${track.title}`}
+                        className='shrink-0 rounded-full p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600'
+                      >
+                        <X size={16} />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+
+          {draft.length === 0 && (
+            <p className='mt-5 border-t border-slate-200 pt-4 text-center text-sm text-slate-500'>
+              Add at least two songs and the ranking can start.
+            </p>
+          )}
+
           <button
-            onClick={() => setShowYouTubeImport(true)}
-            className='w-full rounded-2xl border border-slate-200 bg-white/70 py-3 font-medium text-slate-600 backdrop-blur transition-colors hover:bg-white'
+            onClick={handleStartRanking}
+            disabled={!canStart}
+            className='mt-4 w-full rounded-2xl bg-slate-900 py-4 font-semibold text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40'
           >
-            Paste a playlist link instead
+            {canStart ? `Start ranking ${draft.length} songs` : 'Start ranking'}
           </button>
-        </div>
+        </section>
 
-        {error && (
-          <p className='animate-rise mt-4 text-center text-sm text-rose-600'>
-            {error}
-          </p>
-        )}
-
-        <p className='mt-8 text-center text-xs text-slate-400'>
+        <p className='mt-6 text-center text-xs text-slate-400'>
           Imports run on your own free YouTube API key.
         </p>
       </div>
@@ -192,7 +297,7 @@ function DashboardContent() {
       {/* YouTube Import Modal */}
       {showYouTubeImport && (
         <YouTubeImportModal
-          onImport={handleYouTubeImport}
+          onImport={(tracks, name) => addToDraft(tracks, name)}
           onClose={() => setShowYouTubeImport(false)}
         />
       )}

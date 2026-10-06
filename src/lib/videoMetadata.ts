@@ -104,3 +104,24 @@ export function chunkIds<T>(items: T[], size: number): T[][] {
   }
   return chunks
 }
+
+/**
+ * A duration for display, as m:ss or h:mm:ss.
+ *
+ * An unknown or nonsensical length comes back as an empty string rather than
+ * "0:00", so a row can simply leave the slot out instead of claiming the song is
+ * zero seconds long.
+ */
+export function formatDurationMs(ms: number | null | undefined): string {
+  if (!Number.isFinite(ms) || (ms as number) <= 0) return ''
+
+  const totalSeconds = Math.round((ms as number) / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (value: number) => String(value).padStart(2, '0')
+
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${minutes}:${pad(seconds)}`
+}

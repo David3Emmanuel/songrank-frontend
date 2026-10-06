@@ -39,3 +39,37 @@ export function sessionProgress(
     topMayShift: !comparable || perSong < SETTLED_TOP_PER_SONG,
   }
 }
+
+/** A list this long is worth a gentle nudge before committing to it. */
+export const LONG_LIST_SONGS = 15
+
+/**
+ * Seconds one pick takes, used only to give a rough length for a draft list.
+ * A wide range on purpose: an estimate that looks precise would be a lie.
+ */
+const SECONDS_PER_PICK_LOW = 12
+const SECONDS_PER_PICK_HIGH = 20
+
+export interface DraftEstimate {
+  picks: number
+  minutesLow: number
+  minutesHigh: number
+  /** Long enough that the session is likely to be abandoned. */
+  isLong: boolean
+}
+
+/**
+ * What a draft list is likely to cost the user before they start.
+ *
+ * Uses the same comparisons per song the ending test measured, so the promise
+ * matches what the session actually asks for.
+ */
+export function draftEstimate(songCount: number): DraftEstimate {
+  const picks = Math.ceil(songCount * SUGGEST_STOP_PER_SONG)
+  return {
+    picks,
+    minutesLow: Math.max(1, Math.round((picks * SECONDS_PER_PICK_LOW) / 60)),
+    minutesHigh: Math.max(1, Math.round((picks * SECONDS_PER_PICK_HIGH) / 60)),
+    isLong: songCount > LONG_LIST_SONGS,
+  }
+}
