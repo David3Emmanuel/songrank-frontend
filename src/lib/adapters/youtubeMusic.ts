@@ -13,21 +13,26 @@ import { YouTubeApiError } from './youtube'
 import {
   INNERTUBE_SEARCH_ENDPOINT,
   MUSIC_CLIENT,
-  parseSearchSongs,
+  parseSearchEntities,
+  type MusicSearchEntity,
 } from '../innertube'
 import { groupVideos } from '../songGrouping'
 import { smallerThumbnailUrl } from '../videoMetadata'
 import type { Track } from '../types'
+
+export interface MusicSearch {
+  /** The songs, grouped, as the pick list has always taken them. */
+  collection: GroupedSongCollection
+  /** Everything the search returned, in the order it ranked them. */
+  entities: MusicSearchEntity[]
+}
 
 export class YouTubeMusicAdapter {
   /**
    * One search, one request. No key and no quota: this is the endpoint the music
    * web player itself calls.
    */
-  async searchCollection(
-    query: string,
-    max = 25,
-  ): Promise<GroupedSongCollection> {
+  async searchBoth(query: string, max = 25): Promise<MusicSearch> {
     const body = {
       context: { client: MUSIC_CLIENT },
       query,
@@ -56,11 +61,18 @@ export class YouTubeMusicAdapter {
       throw new YouTubeApiError(res.status, reason)
     }
 
-    const songs = parseSearchSongs(await res.json()).slice(0, max)
+    const parsed = parseSearchEntities(await res.json())
+    const entities = parsed.slice(0, max)
+    // Only what can be played, in the order the search ranked it. Cap the songs
+    // as well as the entities, since the entity list carries albums and artists
+    // that would otherwise eat into the list.
+    const songs = parsed
+      .filter((entity) => entity.kind === 'song' || entity.kind === 'video')
+      .slice(0, max)
 
     const grouped = groupVideos(
       songs.map((song) => ({
-        id: song.videoId,
+        id: song.id,
         title: song.title,
         channelTitle: song.artist,
         durationMs: song.durationMs,
@@ -84,14 +96,25 @@ export class YouTubeMusicAdapter {
     }))
 
     return {
-      id: `search:${query}`,
-      type: 'playlist',
-      name: query,
-      description: `${tracks.length} songs for “${query}”`,
-      coverImage: tracks[0]?.coverImage,
-      tracks,
-      duplicates: grouped.duplicates,
-      filtered: grouped.filtered,
+      entities,
+      collection: {
+        id: `search:${query}`,
+        type: 'playlist',
+        name: query,
+        description: `${tracks.length} songs for “${query}”`,
+        coverImage: tracks[0]?.coverImage,
+        tracks,
+        duplicates: grouped.duplicates,
+        filtered: grouped.filtered,
+      },
     }
+  }
+
+  /** Just the playable songs, for callers that do not care about the rest. */
+  async searchCollection(
+    query: string,
+    max = 25,
+  ): Promise<GroupedSongCollection> {
+    return (await this.searchBoth(query, max)).collection
   }
 }
