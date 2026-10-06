@@ -90,9 +90,17 @@ function DashboardContent() {
   /** The list being assembled. Nothing is ranked until Start is pressed. */
   const [draft, setDraft] = useState<Track[]>([])
   const [draftName, setDraftName] = useState('')
+  /** Search results, waiting to be picked from. */
+  const [candidates, setCandidates] = useState<Track[]>([])
+  const [foundFor, setFoundFor] = useState<{
+    query: string
+    duplicates: number
+    filtered: number
+  } | null>(null)
 
   const estimate = draftEstimate(draft.length)
   const canStart = draft.length > 1
+  const inDraft = (id: string) => draft.some((track) => track.id === id)
 
   /**
    * Adds songs to the draft, skipping any already in it.
@@ -135,7 +143,14 @@ function DashboardContent() {
         throw new Error(`Nothing musical came back for “${trimmed}”.`)
       }
 
-      addToDraft(data.tracks as Track[], data.name ?? trimmed)
+      // Results wait to be picked from rather than landing in the list: a search
+      // for one song should not add twenty five others.
+      setCandidates(data.tracks as Track[])
+      setFoundFor({
+        query: (data.name as string) ?? trimmed,
+        duplicates: Number(data.duplicates ?? 0),
+        filtered: Number(data.filtered ?? 0),
+      })
       setQuery('')
     } catch (err) {
       setError(
@@ -220,6 +235,95 @@ function DashboardContent() {
 
           {error && (
             <p className='mt-3 text-sm text-rose-600'>{error}</p>
+          )}
+
+          {/* Search results, to pick from */}
+          {foundFor && candidates.length > 0 && (
+            <div className='mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-3'>
+              <div className='flex items-center justify-between gap-2'>
+                <p className='min-w-0 truncate text-sm font-semibold'>
+                  {candidates.length} song
+                  {candidates.length !== 1 ? 's' : ''} for “{foundFor.query}”
+                </p>
+                <div className='flex shrink-0 items-center gap-1'>
+                  <button
+                    onClick={() => addToDraft(candidates, foundFor.query)}
+                    className='rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600'
+                  >
+                    Add all
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFoundFor(null)
+                      setCandidates([])
+                    }}
+                    aria-label='Hide these results'
+                    className='rounded-full p-2 text-slate-400 transition-colors hover:bg-white hover:text-slate-600'
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {(foundFor.duplicates > 0 || foundFor.filtered > 0) && (
+                <p className='mt-1 text-xs text-slate-500'>
+                  Skipped{' '}
+                  {[
+                    foundFor.duplicates > 0
+                      ? `${foundFor.duplicates} duplicate upload${
+                          foundFor.duplicates === 1 ? '' : 's'
+                        }`
+                      : null,
+                    foundFor.filtered > 0
+                      ? `${foundFor.filtered} that ${
+                          foundFor.filtered === 1 ? 'is not a song' : 'are not songs'
+                        }`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' and ')}
+                  .
+                </p>
+              )}
+
+              <ul className='mt-2 max-h-[38vh] space-y-1.5 overflow-y-auto pr-1'>
+                {candidates.map((track) => {
+                  const duration = formatDurationMs(track.durationMs)
+                  const added = inDraft(track.id)
+                  return (
+                    <li
+                      key={track.id}
+                      className='flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-2'
+                    >
+                      <div className='h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100 text-slate-300'>
+                        <TrackArtwork src={track.coverImage} alt={track.title} />
+                      </div>
+                      <div className='min-w-0 flex-1'>
+                        <p className='truncate text-sm leading-tight font-semibold'>
+                          {track.title}
+                        </p>
+                        <p className='truncate text-xs leading-tight text-slate-500'>
+                          {track.artist}
+                          {duration ? ` · ${duration}` : ''}
+                        </p>
+                      </div>
+                      {added ? (
+                        <span className='shrink-0 pr-2 text-xs text-slate-400'>
+                          Added
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => addToDraft([track], foundFor.query)}
+                          className='shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800'
+                        >
+                          Add
+                        </button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           )}
 
           {/* The list itself */}

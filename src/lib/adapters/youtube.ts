@@ -5,6 +5,7 @@ import {
   decodeHtmlEntities,
   parseIsoDurationMs,
 } from '../videoMetadata'
+import { groupVideos } from '../songGrouping'
 
 /** The slice of search.list this adapter reads. */
 interface SearchListResponse {
@@ -73,8 +74,16 @@ async function apiErrorReason(res: Response): Promise<string> {
   }
 }
 
-export class YouTubeAdapter {
-  private apiKey: string
+/**
+ * A search result page, plus a note of what was collapsed or dropped on the way
+ * in, so the screen can say what was hidden rather than hiding it silently.
+ */
+export interface GroupedSongCollection extends SongCollection {
+  duplicates: number
+  filtered: number
+}
+
+export class YouTubeAdapter {  private apiKey: string
   private accessToken?: string
 
   constructor(apiKey: string, accessToken?: string) {
@@ -220,7 +229,10 @@ export class YouTubeAdapter {
    * Costs 100 quota units for the search plus 1 per 50 results for the lengths,
    * which is why the result count is capped rather than paged.
    */
-  async searchCollection(query: string, max = 25): Promise<SongCollection> {
+  async searchCollection(
+    query: string,
+    max = 25,
+  ): Promise<GroupedSongCollection> {
     const res = await fetch(
       `https://www.googleapis.com/youtube/v3/search?` +
         new URLSearchParams({
@@ -243,17 +255,30 @@ export class YouTubeAdapter {
     )
     const durations = await this.fetchDurations(found.map((item) => item.id.videoId))
 
-    const tracks: Track[] = found.map((item) => ({
-      id: item.id.videoId,
-      title: decodeHtmlEntities(item.snippet.title),
-      artist: artistFromChannelTitle(item.snippet.channelTitle),
+    // YouTube returns uploads, not songs: the same track arrives as the official
+    // video, the audio, a lyric reupload. Collapsed here so nobody is asked to
+    // rank a song against itself.
+    const grouped = groupVideos(
+      found.map((item) => ({
+        id: item.id.videoId,
+        title: decodeHtmlEntities(item.snippet.title),
+        channelTitle: item.snippet.channelTitle,
+        durationMs: durations.get(item.id.videoId) ?? 0,
+        coverImage:
+          item.snippet.thumbnails?.high?.url ||
+          item.snippet.thumbnails?.default?.url,
+      })),
+    )
+
+    const tracks: Track[] = grouped.songs.map((song) => ({
+      id: song.id,
+      title: song.title,
+      artist: artistFromChannelTitle(song.channelTitle),
       album: '',
-      durationMs: durations.get(item.id.videoId) ?? 0,
-      coverImage:
-        item.snippet.thumbnails?.high?.url ||
-        item.snippet.thumbnails?.default?.url,
+      durationMs: song.durationMs,
+      coverImage: song.coverImage,
       externalUrls: {
-        youtube: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        youtube: `https://www.youtube.com/watch?v=${song.id}`,
       },
       previewUrl: undefined, // YouTube doesn't provide direct audio previews
     }))
@@ -262,9 +287,11 @@ export class YouTubeAdapter {
       id: `search:${query}`,
       type: 'playlist',
       name: query,
-      description: `${tracks.length} results for “${query}”`,
+      description: `${tracks.length} songs for “${query}”`,
       coverImage: tracks[0]?.coverImage,
       tracks,
+      duplicates: grouped.duplicates,
+      filtered: grouped.filtered,
     }
   }
 
