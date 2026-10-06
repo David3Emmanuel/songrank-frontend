@@ -1,0 +1,291 @@
+{
+  "rows": [
+    {
+      "musicCardShelfRenderer": {
+        "trackingParams": "CKUDEPiRBRgAIhMI_pyuw66mlwMVVkRPBB21JyCU",
+        "thumbnail": {
+          "musicThumbnailRenderer": {
+            "thumbnail": {
+              "thumbnails": [
+                {
+                  "url": "https://yt3.googleusercontent.com/uB8Magh99SvDyT_mcDYeNYxlVZ_F9WN-cJtAFMHw_Q-_N_8y5-uZiay8-EZSKKloNoWxymBzVehSF4PN=w60-h60-p-l90-rj",
+                  "width": 60,
+                  "height": 60
+                },
+                {
+                  "url": "https://yt3.googleusercontent.com/uB8Magh99SvDyT_mcDYeNYxlVZ_F9WN-cJtAFMHw_Q-_N_8y5-uZiay8-EZSKKloNoWxymBzVehSF4PN=w120-h120-p-l90-rj",
+                  "width": 120,
+                  "height": 120
+                }
+              ]
+            },
+            "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+            "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL",
+            "trackingParams": "COcDEIS_AiITCP6crsOuppcDFVZETwQdtScglA=="
+          }
+        },
+        "title": {
+          "runs": [
+            {
+              "text": "Kendrick Lamar",
+              "navigationEndpoint": {
+                "clickTrackingParams": "CKUDEPiRBRgAIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                "browseEndpoint": {
+                  "browseId": "UCprAFmT0C6O4X0ToEXpeFTQ",
+                  "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "subtitle": {
+          "runs": [
+            {
+              "text": "Artist"
+            },
+            {
+              "text": " • "
+            },
+            {
+              "text": "155M monthly audience"
+            }
+          ],
+          "accessibility": {
+            "accessibilityData": {
+              "label": "Artist • 155M monthly audience"
+            }
+          }
+        },
+        "buttons": [
+          {
+            "buttonRenderer": {
+              "style": "STYLE_DARK_ON_WHITE",
+              "size": "SIZE_DEFAULT",
+              "text": {
+                "runs": [
+                  {
+                    "text": "Shuffle"
+                  }
+                ]
+              },
+              "icon": {
+                "iconType": "MUSIC_SHUFFLE"
+              },
+              "accessibility": {
+                "label": "Shuffle"
+              },
+              "trackingParams": "CK0DEJbSBRgDIhMI_pyuw66mlwMVVkRPBB21JyCU",
+              "accessibilityData": {
+                "accessibilityData": {
+                  "label": "Shuffle"
+                }
+              },
+              "command": {
+                "clickTrackingParams": "CK0DEJbSBRgDIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                "watchPlaylistEndpoint": {
+                  "playlistId": "RDAOiH8aXmL0GBif6quidMdHew",
+                  "params": "wAEB8gECGAE%3D"
+                }
+              }
+            }
+          },
+          {
+            "buttonRenderer": {
+              "style": "STYLE_WHITE_TRANSLUCENT",
+              "text": {
+                "runs": [
+                  {
+                    "text": "Mix"
+                  }
+                ]
+              },
+              "icon": {
+                "iconType": "MIX"
+              },
+              "accessibility": {
+                "label": "Mix"
+              },
+              "trackingParams": "CKwDEJXSBRgEIhMI_pyuw66mlwMVVkRPBB21JyCU",
+              "accessibilityData": {
+                "accessibilityData": {
+                  "label": "Mix"
+                }
+              },
+              "command": {
+                "clickTrackingParams": "CKwDEJXSBRgEIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                "watchPlaylistEndpoint": {
+                  "playlistId": "RDEMiH8aXmL0GBif6quidMdHew",
+                  "params": "wAEB"
+                }
+              }
+            }
+          }
+        ],
+        "menu": {
+          "menuRenderer": {
+            "items": [
+              {
+                "menuNavigationItemRenderer": {
+                  "text": {
+                    "runs": [
+                      {
+                        "text": "Shuffle play"
+                      }
+                    ]
+                  },
+                  "icon": {
+                    "iconType": "MUSIC_SHUFFLE"
+                  },
+                  "navigationEndpoint": {
+                    "clickTrackingParams": "CKsDEJrzBRgAIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                    "watchPlaylistEndpoint": {
+                      "playlistId": "RDAOiH8aXmL0GBif6quidMdHew",
+                      "params": "wAEB8gECGAE%3D"
+                    }
+                  },
+                  "trackingParams": "CKsDEJrzBRgAIhMI_pyuw66mlwMVVkRPBB21JyCU"
+                }
+              },
+              {
+                "menuNavigationItemRenderer": {
+                  "text": {
+                    "runs": [
+                      {
+                        "text": "Start mix"
+                      }
+                    ]
+                  },
+                  "icon": {
+                    "iconType": "MIX"
+                  },
+                  "navigationEndpoint": {
+                    "clickTrackingParams": "CKoDEJvzBRgBIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                    "watchPlaylistEndpoint": {
+                      "playlistId": "RDEMiH8aXmL0GBif6quidMdHew",
+                      "params": "wAEB"
+                    }
+                  },
+                  "trackingParams": "CKoDEJvzBRgBIhMI_pyuw66mlwMVVkRPBB21JyCU"
+                }
+              },
+              {
+                "toggleMenuServiceItemRenderer": {
+                  "defaultText": {
+                    "runs": [
+                      {
+                        "text": "Subscribe"
+                      }
+                    ]
+                  },
+                  "defaultIcon": {
+                    "iconType": "SUBSCRIBE"
+                  },
+                  "defaultServiceEndpoint": {
+                    "clickTrackingParams": "CKgDEKicBhgCIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                    "modalEndpoint": {
+                      "modal": {
+                        "modalWithTitleAndButtonRenderer": {
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Subscribe to this artist"
+                              }
+                            ]
+                          },
+                          "content": {
+                            "runs": [
+                              {
+                                "text": "Sign in to subscribe to this artist and never miss a beat"
+                              }
+                            ]
+                          },
+                          "button": {
+                            "buttonRenderer": {
+                              "style": "STYLE_BLUE_TEXT",
+                              "isDisabled": false,
+                              "text": {
+                                "runs": [
+                                  {
+                                    "text": "Sign in"
+                                  }
+                                ]
+                              },
+                              "navigationEndpoint": {
+                                "clickTrackingParams": "CKkDEPBbIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                                "signInEndpoint": {
+                                  "hack": true
+                                }
+                              },
+                              "trackingParams": "CKkDEPBbIhMI_pyuw66mlwMVVkRPBB21JyCU"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "toggledText": {
+                    "runs": [
+                      {
+                        "text": "Unsubscribe"
+                      }
+                    ]
+                  },
+                  "toggledIcon": {
+                    "iconType": "SUBSCRIBE"
+                  },
+                  "trackingParams": "CKgDEKicBhgCIhMI_pyuw66mlwMVVkRPBB21JyCU"
+                }
+              },
+              {
+                "menuNavigationItemRenderer": {
+                  "text": {
+                    "runs": [
+                      {
+                        "text": "Share"
+                      }
+                    ]
+                  },
+                  "icon": {
+                    "iconType": "SHARE"
+                  },
+                  "navigationEndpoint": {
+                    "clickTrackingParams": "CKcDEJH7BRgDIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+                    "shareEntityEndpoint": {
+                      "serializedShareEntity": "GhhVQ3ByQUZtVDBDNk80WDBUb0VYcGVGVFE%3D",
+                      "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
+                    }
+                  },
+                  "trackingParams": "CKcDEJH7BRgDIhMI_pyuw66mlwMVVkRPBB21JyCU"
+                }
+              }
+            ],
+            "trackingParams": "CKYDEKc7IhMI_pyuw66mlwMVVkRPBB21JyCU",
+            "accessibility": {
+              "accessibilityData": {
+                "label": "Action menu"
+              }
+            }
+          }
+        },
+        "onTap": {
+          "clickTrackingParams": "CKUDEPiRBRgAIhMI_pyuw66mlwMVVkRPBB21JyCUygEE-7zdng==",
+          "browseEndpoint": {
+            "browseId": "UCprAFmT0C6O4X0ToEXpeFTQ",
+            "browseEndpointContextSupportedConfigs": {
+              "browseEndpointContextMusicConfig": {
+                "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+              }
+            }
+          }
+        },
+        "endIcon": {
+          "iconType": "CHEVRON_RIGHT"
+        }
+      }
+    }
+  ]
+}

@@ -17,6 +17,15 @@
 export const INNERTUBE_SEARCH_ENDPOINT =
   'https://music.youtube.com/youtubei/v1/search?prettyPrint=false'
 
+/**
+ * The same endpoint family, for opening one thing rather than finding it.
+ *
+ * A `browseId` is an album, a single, an artist or a playlist, and every one of
+ * those pages lists its tracks as the same rows a search returns.
+ */
+export const INNERTUBE_BROWSE_ENDPOINT =
+  'https://music.youtube.com/youtubei/v1/browse?prettyPrint=false'
+
 /** Identifies the client, exactly as the music web player does. */
 export const MUSIC_CLIENT = {
   clientName: 'WEB_REMIX',
@@ -27,6 +36,16 @@ export const MUSIC_CLIENT = {
 
 /** The row renderer that holds one song or one video. */
 const SONG_ROW = 'musicResponsiveListItemRenderer'
+
+/**
+ * The card at the top of a search, which is its own renderer.
+ *
+ * Searching for an artist or an album puts that artist or album here rather than
+ * in the list, so a parser that only reads rows never sees the thing that was
+ * searched for: a search for "Kendrick Lamar" returned J. Cole and SZA as
+ * artists and not Kendrick himself.
+ */
+const TOP_CARD = 'musicCardShelfRenderer'
 
 /** The label on a row that distinguishes real music from reuploads. */
 export const OFFICIAL_VIDEO_TYPES = new Set([
@@ -155,6 +174,19 @@ export function parseSubtitle(text: string): ParsedSubtitle {
   }
 
   return result
+}
+
+/** The runs of a plain text object, as nodes. */
+function runsOfText(text: Node | null): Node[] {
+  const runs = Array.isArray(text?.runs) ? (text.runs as unknown[]) : []
+  return runs.map((run) => asNode(run) ?? {})
+}
+
+/** A plain text object, joined back into the line it shows. */
+function columnTextLike(text: Node | null): string {
+  return runsOfText(text)
+    .map((run) => (typeof run.text === 'string' ? run.text : ''))
+    .join('')
 }
 
 /** The runs of one column, as nodes, for reading both their text and their links. */
@@ -296,6 +328,69 @@ export function kindForRow(
 }
 
 /**
+ * The top result card, as an entity.
+ *
+ * Its title and subtitle read like a row's, but it is a single card with no flex
+ * columns, and its link can sit on the title's own run or on the card itself.
+ */
+function parseTopCard(card: Node): MusicSearchEntity | null {
+  const titleNode = asNode(card.title)
+  const title = columnTextLike(titleNode).trim()
+  if (!title) return null
+
+  const subtitle = columnTextLike(asNode(card.subtitle)).trim()
+  const parsed = parseSubtitle(subtitle)
+
+  // The link is either on the title run or on the card's own tap target.
+  const endpoints = [
+    ...runsOfText(titleNode).map((run) => asNode(run.navigationEndpoint)),
+    asNode(card.onTap),
+  ].filter((endpoint): endpoint is Node => Boolean(endpoint))
+
+  for (const endpoint of endpoints) {
+    const browse = asNode(endpoint.browseEndpoint)
+    const browseId = browse?.browseId
+    if (typeof browseId === 'string' && browseId) {
+      const configs = asNode(browse?.browseEndpointContextSupportedConfigs)
+      const music = asNode(configs?.browseEndpointContextMusicConfig)
+      const pageType = typeof music?.pageType === 'string' ? music.pageType : ''
+      const kind = kindForRow(pageType, parsed.kind)
+      if (!kind) return null
+
+      return {
+        kind,
+        id: browseId,
+        title,
+        artist: kind === 'artist' ? '' : parsed.artist,
+        album: '',
+        year: yearIn(subtitle),
+        detail: subtitle,
+        durationMs: parsed.durationMs,
+        coverImage: coverFrom(card),
+      }
+    }
+
+    const watch = asNode(endpoint.watchEndpoint)
+    const videoId = watch?.videoId
+    if (typeof videoId === 'string' && videoId) {
+      return {
+        kind: parsed.kind.toLowerCase() === 'video' ? 'video' : 'song',
+        id: videoId,
+        title,
+        artist: parsed.artist,
+        album: '',
+        year: '',
+        detail: subtitle,
+        durationMs: parsed.durationMs,
+        coverImage: coverFrom(card),
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * Every row of a search response, typed, in the order YouTube Music ranked them.
  *
  * A row that carries a video id and names no page type is a song: it can be
@@ -304,6 +399,12 @@ export function kindForRow(
  */
 export function parseSearchEntities(payload: unknown): MusicSearchEntity[] {
   const entities: MusicSearchEntity[] = []
+
+  // The card sits above the list, so it comes first here too.
+  for (const card of collect(payload, TOP_CARD)) {
+    const entity = parseTopCard(card)
+    if (entity) entities.push(entity)
+  }
 
   for (const row of collect(payload, SONG_ROW)) {
     const columns = Array.isArray(row.flexColumns)

@@ -220,3 +220,31 @@ test('an entity row without a browse id is dropped rather than shown dead', () =
   }
   assert.deepEqual(parseSearchEntities(payload), [])
 })
+
+// The card at the top of a search is its own renderer, and skipping it meant the
+// artist someone searched for was the one result that never appeared: a search
+// for "Kendrick Lamar" listed J. Cole and SZA as artists, and not him.
+const cardFixture = JSON.parse(
+  readFileSync(
+    new URL('./fixtures/innertube-search-card.json', import.meta.url),
+    'utf8',
+  ),
+)
+
+test('the top result card is read as an entity', () => {
+  const entities = parseSearchEntities(cardFixture)
+  assert.equal(entities.length, 1)
+  assert.deepEqual(entities[0].kind, 'artist')
+  assert.equal(entities[0].title, 'Kendrick Lamar')
+  assert.equal(entities[0].id, 'UCprAFmT0C6O4X0ToEXpeFTQ')
+  assert.equal(entities[0].artist, '')
+  assert.match(entities[0].detail, /monthly audience/)
+})
+
+test('the card comes before the rows it sits above', () => {
+  const both = { ...entityFixture }
+  both.rows = [...cardFixture.rows, ...entityFixture.rows]
+  const entities = parseSearchEntities(both)
+  assert.equal(entities[0].title, 'Kendrick Lamar')
+  assert.equal(entities[1].kind, 'song')
+})
