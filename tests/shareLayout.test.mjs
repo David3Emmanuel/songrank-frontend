@@ -160,6 +160,48 @@ test('the runner up covers are sized as a ratio of the winner', () => {
   assert.ok(RUNNER_COVER_RATIO > 0 && RUNNER_COVER_RATIO < 1)
 })
 
+test('a dense square card drops the gaps before it shrinks the rows', () => {
+  const ten = cardLayout('1:1', 10)
+  assert.equal(ten.rowGap, 0, 'a top ten square should set its rows flush')
+  // And the rows are still legible, which is the point of dropping the gaps.
+  assert.ok(ten.rowHeight > Math.floor(ten.height * 0.05))
+})
+
+test('a roomy card keeps its gaps', () => {
+  const five = cardLayout('1:1', 5)
+  assert.ok(five.rowGap > 0, 'a top five has no reason to squeeze')
+})
+
+test('the tall card is left alone, since its rows already have room', () => {
+  const ten = cardLayout('9:16', 10)
+  assert.ok(ten.rowGap > 0)
+  assert.ok(ten.rowHeight > Math.floor(ten.height * 0.05))
+  assert.equal(ten.rowColumns, 1)
+})
+
+test('a wide card sets its rows in two panes', () => {
+  const ten = cardLayout('16:9', 10)
+  assert.equal(ten.rowColumns, 2)
+  assert.equal(ten.rowsPerColumn, 4)
+  // Both panes fit inside the card.
+  assert.ok(
+    ten.rowColumns * ten.rowPaneWidth + ten.rowPaneGap <=
+      ten.width - ten.marginX * 2 + 1,
+    'the panes do not fit across the card',
+  )
+  // And the panes buy the rows real height: four to a column instead of seven.
+  assert.ok(
+    ten.rowHeight > cardLayout('1:1', 10).rowHeight,
+    'two panes should beat one column',
+  )
+})
+
+test('a wide card with only two rows below the podium uses one pane', () => {
+  const five = cardLayout('16:9', 5)
+  assert.equal(five.rowColumns, 2)
+  assert.equal(five.rowsPerColumn, 1)
+})
+
 test('a story has room for taller rows than a square', () => {
   assert.ok(cardLayout('9:16', 10).rowHeight > cardLayout('1:1', 10).rowHeight)
 })

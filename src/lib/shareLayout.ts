@@ -109,6 +109,12 @@ export interface CardLayout {
   rowBadgeRadius: number
   /** Songs past the podium, so 0 for a card of three. */
   rowCount: number
+  /** 2 on a wide card, where the rows sit in two panes. */
+  rowColumns: number
+  /** Rows in the fullest pane, which is what the height is measured on. */
+  rowsPerColumn: number
+  rowPaneGap: number
+  rowPaneWidth: number
 }
 
 export function cardLayout(
@@ -138,11 +144,22 @@ export function cardLayout(
   // The space between the header and the footer, shared by the podium and rows.
   const region = contentBottomLimit - podiumTopBase
 
+  const wide = format === '16:9'
   const rowCount = Math.max(0, songCount - 3)
-  const rowGap = at(0.012)
   const minRow = at(MIN_ROW_FRACTION)
   const preferredRow = at(PREFERRED_ROW_FRACTION)
   const leadIn = rowCount > 0 ? at(0.02) : 0
+
+  // A wide card lays the rows out in two panes: seven rows in one column of a
+  // 1080 tall canvas is a cramped strip, where two panes of four have room.
+  const rowColumns = wide && rowCount > 0 ? 2 : 1
+  const rowsPerColumn = rowColumns > 0 ? Math.ceil(rowCount / rowColumns) : 0
+  const rowPaneGap = rowColumns === 2 ? at(0.03) : 0
+  const rowPaneWidth =
+    (width - marginX * 2 - rowPaneGap * (rowColumns - 1)) / rowColumns
+
+  /** The space between rows, dropped when a card gets dense. */
+  let rowGap = at(0.012)
 
   // A top three on a tall card stacks instead: three squares across a 1080 wide
   // story only reach about a third of the width each, which leaves most of the
@@ -163,7 +180,9 @@ export function cardLayout(
     Math.max(low, Math.min(high, value))
 
   const preferredRows =
-    rowCount > 0 ? rowCount * preferredRow + (rowCount - 1) * rowGap : 0
+    rowsPerColumn > 0
+      ? rowsPerColumn * preferredRow + (rowsPerColumn - 1) * rowGap
+      : 0
 
   // The podium takes the slack, within bounds.
   let podiumCover = clamp(
@@ -172,25 +191,33 @@ export function cardLayout(
     maxCover,
   )
 
-  const heightPerRow = (cover: number) => {
-    if (rowCount === 0) return 0
+  const heightPerRow = (cover: number, gap: number) => {
+    if (rowsPerColumn === 0) return 0
     const space = region - cover - leadIn - podiumCaption.block
-    return Math.floor((space - (rowCount - 1) * rowGap) / rowCount)
+    return Math.floor((space - (rowsPerColumn - 1) * gap) / rowsPerColumn)
   }
 
-  let rowHeight = heightPerRow(podiumCover)
+  let rowHeight = heightPerRow(podiumCover, rowGap)
 
-  // Rows that came out too tight take their space back from the podium.
-  if (rowCount > 0 && rowHeight < minRow) {
+  // Spacing is the first thing to go on a dense card. Rows carry borders, so
+  // touching ones still read as separate, whereas a row at the legibility floor
+  // does not get better by keeping the space between them.
+  if (rowsPerColumn > 0 && rowHeight <= minRow) {
+    rowGap = 0
+    rowHeight = heightPerRow(podiumCover, rowGap)
+  }
+
+  // Still too tight, so the rows take their space back from the podium.
+  if (rowsPerColumn > 0 && rowHeight < minRow) {
     podiumCover = clamp(
       region -
-        (rowCount * minRow + (rowCount - 1) * rowGap) -
+        (rowsPerColumn * minRow + (rowsPerColumn - 1) * rowGap) -
         leadIn -
         podiumCaption.block,
       Math.min(at(HARD_MIN_COVER_FRACTION), widthCap),
       maxCover,
     )
-    rowHeight = heightPerRow(podiumCover)
+    rowHeight = heightPerRow(podiumCover, rowGap)
   }
 
   // And rows that came out too generous keep to a sensible height, leaving the
@@ -216,7 +243,9 @@ export function cardLayout(
   const contentHeight =
     podiumBlock +
     leadIn +
-    (rowCount > 0 ? rowCount * rowHeight + (rowCount - 1) * rowGap : 0)
+    (rowsPerColumn > 0
+      ? rowsPerColumn * rowHeight + (rowsPerColumn - 1) * rowGap
+      : 0)
   const slack = Math.max(0, region - contentHeight)
   const podiumTop = podiumTopBase + Math.floor(slack / 2)
 
@@ -251,6 +280,10 @@ export function cardLayout(
     rowSubFont: Math.min(26, Math.max(15, Math.round(rowHeight * 0.32))),
     rowBadgeRadius: Math.min(26, Math.max(16, Math.round(rowHeight * 0.36))),
     rowCount,
+    rowColumns,
+    rowsPerColumn,
+    rowPaneGap,
+    rowPaneWidth,
   }
 }
 
@@ -259,8 +292,8 @@ export function layoutBottom(layout: CardLayout): number {
   if (layout.rowCount > 0) {
     return (
       layout.rowsTop +
-      layout.rowCount * layout.rowHeight +
-      (layout.rowCount - 1) * layout.rowGap
+      layout.rowsPerColumn * layout.rowHeight +
+      (layout.rowsPerColumn - 1) * layout.rowGap
     )
   }
 

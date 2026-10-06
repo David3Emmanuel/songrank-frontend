@@ -164,6 +164,10 @@ export async function generateShareCard({
     rowTitleFont,
     rowSubFont,
     rowBadgeRadius,
+    rowColumns,
+    rowsPerColumn,
+    rowPaneGap,
+    rowPaneWidth,
     podiumColumnGap,
     podiumRunnerTop,
   } = layout
@@ -331,18 +335,24 @@ export async function generateShareCard({
   rest.forEach((track, index) => {
     const place = index + 4
     const cover = covers[index + 3] ?? null
-    const y = rowsTop + index * (rowHeight + rowGap)
+
+    // A wide card sets the rows in two panes, so the column and the row within
+    // it come from the index rather than the index being the row.
+    const column = rowColumns > 1 ? Math.floor(index / rowsPerColumn) : 0
+    const rowInColumn = rowColumns > 1 ? index % rowsPerColumn : index
+    const paneX = marginX + column * (rowPaneWidth + rowPaneGap)
+    const y = rowsTop + rowInColumn * (rowHeight + rowGap)
     const colour = PLACE_COLOURS[place - 1] ?? colours.border
 
     ctx.fillStyle = colours.card
     ctx.strokeStyle = colours.border
     ctx.lineWidth = 2
-    roundRect(ctx, marginX, y, width - marginX * 2, rowHeight, 20)
+    roundRect(ctx, paneX, y, rowPaneWidth, rowHeight, 20)
     ctx.fill()
     ctx.stroke()
 
     // Place badge
-    const badgeX = marginX + (tall ? 50 : 42)
+    const badgeX = paneX + (tall ? 50 : 42)
     const badgeY = y + rowHeight / 2
     ctx.beginPath()
     ctx.arc(badgeX, badgeY, rowBadgeRadius, 0, Math.PI * 2)
@@ -355,13 +365,13 @@ export async function generateShareCard({
     ctx.fillText(String(place), badgeX, badgeY + Math.round(rowBadgeRadius * 0.4))
 
     // Cover
-    const artX = marginX + (tall ? 96 : 80)
+    const artX = paneX + (tall ? 96 : 80)
     const artY = y + (rowHeight - rowArt) / 2
     drawCover(ctx, cover, artX, artY, rowArt, 14, colours.border)
 
     // Title, artist and length
     const textX = artX + rowArt + (tall ? 28 : 22)
-    const maxWidth = width - marginX - 30 - textX
+    const maxWidth = paneX + rowPaneWidth - 30 - textX
     const length = formatDurationMs(track.durationMs)
 
     ctx.textAlign = 'left'
