@@ -10,7 +10,15 @@ import YouTubeImportModal from '../components/YouTubeImportModal'
 import TrackArtwork from '../components/TrackArtwork'
 import { draftEstimate } from '../lib/sessionProgress'
 import { formatDurationMs } from '../lib/videoMetadata'
-import { ChevronDown, ChevronRight, Loader2, Music2, X } from 'lucide-react'
+import { resultsLabel, scopedQuery } from '../lib/searchQuery'
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Music2,
+  UserRound,
+  X,
+} from 'lucide-react'
 import type { Track } from '../lib/types'
 import type { MusicEntityKind, MusicSearchEntity } from '../lib/innertube'
 
@@ -119,6 +127,16 @@ function DashboardContent() {
   const [opened, setOpened] = useState<
     Record<string, { loading: boolean; error: string; tracks: Track[] }>
   >({})
+  /**
+   * The artist the search is scoped to, chosen from the results.
+   *
+   * A chip in the search bar rather than a screen of its own: it narrows what is
+   * being searched, and comes off with one tap when it is not wanted.
+   */
+  const [artistFilter, setArtistFilter] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [foundFor, setFoundFor] = useState<{
     query: string
     duplicates: number
@@ -261,7 +279,7 @@ function DashboardContent() {
   const searchIdRef = useRef(0)
   const lastTermRef = useRef('')
 
-  const runSearch = useCallback(async (term: string) => {
+  const runSearch = useCallback(async (term: string, label: string) => {
     const trimmed = term.trim()
     if (trimmed.length < 2 || trimmed === lastTermRef.current) return
 
@@ -279,7 +297,7 @@ function DashboardContent() {
 
       if (!res.ok) throw new Error(data.error ?? 'Search failed')
       if (!Array.isArray(data.tracks) || data.tracks.length === 0) {
-        throw new Error(`Nothing musical came back for “${trimmed}”.`)
+        throw new Error(`Nothing musical came back for “${label}”.`)
       }
 
       // Results wait to be picked from rather than landing in the list: a search
@@ -301,7 +319,7 @@ function DashboardContent() {
             })),
       )
       setFoundFor({
-        query: (data.name as string) ?? trimmed,
+        query: label,
         duplicates: Number(data.duplicates ?? 0),
         filtered: Number(data.filtered ?? 0),
       })
@@ -320,15 +338,17 @@ function DashboardContent() {
   }, [])
 
   // Search as they type: wait for a pause, then ask. Enter skips the wait.
+  // Choosing an artist changes the query, so this runs again with the filter on.
   useEffect(() => {
-    const trimmed = query.trim()
-    if (trimmed.length < 2) return
+    const scoped = scopedQuery(artistFilter?.name, query)
+    if (scoped.length < 2) return
 
+    const label = resultsLabel(artistFilter?.name, query)
     const timer = setTimeout(() => {
-      void runSearch(trimmed)
+      void runSearch(scoped, label)
     }, 400)
     return () => clearTimeout(timer)
-  }, [query, runSearch])
+  }, [query, artistFilter, runSearch])
 
   // Show results if complete
   if (isComplete) {
@@ -364,17 +384,40 @@ function DashboardContent() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              void runSearch(query)
+              void runSearch(
+                scopedQuery(artistFilter?.name, query),
+                resultsLabel(artistFilter?.name, query),
+              )
             }}
             className='space-y-2'
           >
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder='Add songs: an artist or a title'
-              aria-label='Search for songs to add'
-              className='w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
-            />
+            {/* The filter sits inside the field, so the artist is visibly part of
+                the search rather than a hidden mode. It comes off with one tap. */}
+            <div className='flex w-full flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/80 px-2 py-1.5 transition focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100'>
+              {artistFilter && (
+                <span className='inline-flex max-w-[60%] items-center gap-1 rounded-full bg-slate-900 py-1 pr-1 pl-2.5 text-xs font-semibold text-white'>
+                  <UserRound size={12} className='shrink-0' />
+                  <span className='truncate'>{artistFilter.name}</span>
+                  <button
+                    type='button'
+                    onClick={() => setArtistFilter(null)}
+                    aria-label={`Remove ${artistFilter.name} from the search`}
+                    className='shrink-0 rounded-full p-0.5 transition-colors hover:bg-white/20'
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={
+                  artistFilter ? 'Add a song or album' : 'Add songs: an artist or a title'
+                }
+                aria-label='Search for songs to add'
+                className='min-w-[8rem] flex-1 bg-transparent px-2 py-1.5 text-slate-900 outline-none placeholder:text-slate-400'
+              />
+            </div>
             {isSearching && (
               <p className='px-1 text-xs text-slate-400'>Finding…</p>
             )}
@@ -462,7 +505,8 @@ function DashboardContent() {
 
               <ul className='mt-2 max-h-[38vh] space-y-1.5 overflow-y-auto pr-1'>
                 {shownResults.map((entity) => {
-                  // A song is added; anything else opens into the songs it holds.
+                  // A song is added, an artist scopes the search, and anything
+                  // else opens into the songs it holds.
                   const track = tracksById.get(entity.id)
                   const duration = track ? formatDurationMs(track.durationMs) : ''
                   const added = track ? inDraft(track.id) : false
@@ -521,15 +565,35 @@ function DashboardContent() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => void toggleEntity(entity)}
-                          aria-expanded={Boolean(open)}
+                          onClick={() => {
+                            // An artist scopes the search from the search bar;
+                            // everything else opens into the songs it holds.
+                            if (entity.kind === 'artist') {
+                              setArtistFilter({
+                                id: entity.id,
+                                name: entity.title,
+                              })
+                              return
+                            }
+                            void toggleEntity(entity)
+                          }}
+                          aria-expanded={
+                            entity.kind === 'artist'
+                              ? undefined
+                              : Boolean(open)
+                          }
                           className='flex w-full items-center gap-3 p-2 text-left'
                         >
                           {face}
                           <span className='shrink-0 text-xs text-slate-400'>
                             {label}
                           </span>
-                          {open ? (
+                          {entity.kind === 'artist' ? (
+                            <UserRound
+                              size={14}
+                              className='shrink-0 text-slate-400'
+                            />
+                          ) : open ? (
                             <ChevronDown
                               size={16}
                               className='shrink-0 text-slate-400'

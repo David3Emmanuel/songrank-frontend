@@ -11,12 +11,12 @@ const RESULT_COUNT = 50
  * The ids an entity page can carry, by the kind of thing it is.
  *
  * Checked rather than trusted: this id goes straight into an upstream request, so
- * anything that is not one of these shapes is refused before it gets there.
+ * anything that is not one of these shapes is refused before it gets there. An
+ * artist is not here: choosing one filters the search instead of opening it.
  */
 const ID_PATTERNS: Record<string, RegExp> = {
   album: /^MPREb_[\w-]{5,}$/,
   single: /^MPREb_[\w-]{5,}$/,
-  artist: /^UC[\w-]{10,}$/,
   playlist: /^(VL)?[\w-]{10,}$/,
 }
 
