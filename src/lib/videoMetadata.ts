@@ -32,6 +32,46 @@ export function parseIsoDurationMs(value: string | null | undefined): number {
   return Math.round(totalSeconds * 1000)
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+}
+
+function codePointToString(code: number, fallback: string): string {
+  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return fallback
+  try {
+    return String.fromCodePoint(code)
+  } catch {
+    return fallback
+  }
+}
+
+/**
+ * YouTube returns titles HTML-escaped, so a video titled "A & B" arrives as
+ * "A &amp; B" and renders literally. Both the playlist and the search paths go
+ * through here before anything is displayed.
+ */
+export function decodeHtmlEntities(value: string | null | undefined): string {
+  const raw = value ?? ''
+  if (!raw.includes('&')) return raw
+
+  return raw.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (match, entity: string) => {
+    if (entity.startsWith('#')) {
+      const isHex = entity[1] === 'x' || entity[1] === 'X'
+      const digits = entity.slice(isHex ? 2 : 1)
+      return codePointToString(
+        Number.parseInt(digits, isHex ? 16 : 10),
+        match,
+      )
+    }
+    return NAMED_ENTITIES[entity.toLowerCase()] ?? match
+  })
+}
+
 /**
  * A usable artist name from a channel title.
  *
@@ -44,7 +84,7 @@ export function parseIsoDurationMs(value: string | null | undefined): number {
 export function artistFromChannelTitle(
   channelTitle: string | null | undefined,
 ): string {
-  const raw = (channelTitle ?? '').trim()
+  const raw = decodeHtmlEntities(channelTitle).trim()
   if (!raw) return 'Unknown Artist'
 
   const cleaned = raw

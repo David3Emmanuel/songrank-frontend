@@ -4,8 +4,33 @@ import assert from 'node:assert/strict'
 import {
   artistFromChannelTitle,
   chunkIds,
+  decodeHtmlEntities,
   parseIsoDurationMs,
 } from '../src/lib/videoMetadata.ts'
+
+test('unescapes the titles YouTube hands back', () => {
+  assert.equal(decodeHtmlEntities('Dua Lipa &amp; Shakira'), 'Dua Lipa & Shakira')
+  assert.equal(decodeHtmlEntities('Rock &amp; Roll'), 'Rock & Roll')
+  assert.equal(decodeHtmlEntities('It&#39;s Time'), "It's Time")
+  assert.equal(decodeHtmlEntities('It&#x27;s Time'), "It's Time")
+  assert.equal(decodeHtmlEntities('A &lt;B&gt; C'), 'A <B> C')
+  assert.equal(decodeHtmlEntities('&quot;Quoted&quot;'), '"Quoted"')
+  assert.equal(decodeHtmlEntities('A &nbsp; B'), 'A   B')
+  assert.equal(decodeHtmlEntities('&#9731; snow'), '☃ snow')
+  assert.equal(decodeHtmlEntities('&#x2603; snow'), '☃ snow')
+})
+
+test('leaves anything it does not understand alone', () => {
+  assert.equal(decodeHtmlEntities('No entities here'), 'No entities here')
+  assert.equal(decodeHtmlEntities('100% & rising'), '100% & rising')
+  assert.equal(decodeHtmlEntities('&notarealentity;'), '&notarealentity;')
+  assert.equal(decodeHtmlEntities('&#;'), '&#;')
+  // Out of range for a code point: better left as written than thrown on.
+  assert.equal(decodeHtmlEntities('&#1114112;'), '&#1114112;')
+  assert.equal(decodeHtmlEntities(''), '')
+  assert.equal(decodeHtmlEntities(null), '')
+  assert.equal(decodeHtmlEntities(undefined), '')
+})
 
 test('parses the durations the Data API actually returns', () => {
   // Values taken from videos.list for the demo playlist's videos.
