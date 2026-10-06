@@ -1,12 +1,12 @@
 /**
  * THROWAWAY demo. Not linked from anywhere and not part of the app.
  *
- * Four copies of the real rankings sidebar, side by side. Every column is the
- * same size and the rows use the same markup as LiveRankings, so the only thing
- * that differs between them is how the space inside is distributed.
+ * Three copies of the real rankings sidebar, same size, same markup as
+ * LiveRankings. Column numbers match the earlier round: 2 (air) and 4 (bars)
+ * were rejected, so they are gone.
  *
- * Scores are invented, covers are the demo playlist's own. Delete this route
- * once one variant is chosen.
+ * Scores are invented and deliberately span negative to positive. Covers are the
+ * demo playlist's own. Delete this route once a variant is chosen.
  */
 
 import TrackArtwork from '../../components/TrackArtwork'
@@ -20,79 +20,78 @@ type Row = {
   picks: number
 }
 
+const AFTER_HOURS = 'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36'
+
 const ROWS: Row[] = [
-  {
-    title: 'Blinding Lights',
-    artist: 'The Weeknd',
-    cover: 'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36',
-    score: 2.8,
-    picks: 3,
-  },
-  {
-    title: 'Save Your Tears',
-    artist: 'The Weeknd',
-    cover: 'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36',
-    score: 2.6,
-    picks: 3,
-  },
+  { title: 'Blinding Lights', artist: 'The Weeknd', cover: AFTER_HOURS, score: 2.8, picks: 4 },
+  { title: 'Save Your Tears', artist: 'The Weeknd', cover: AFTER_HOURS, score: 2.6, picks: 4 },
   {
     title: 'Levitating',
     artist: 'Dua Lipa',
     cover: 'https://i.scdn.co/image/ab67616d00001e02c88bae7846e62a8ba59ee0bd',
     score: 1.2,
-    picks: 2,
+    picks: 3,
   },
+  { title: 'No More Lies', artist: 'Thundercat', cover: '', score: 0, picks: 0 },
   {
     title: 'Good 4 U',
     artist: 'Olivia Rodrigo',
     cover: 'https://i.scdn.co/image/ab67616d0000b273a91c10fe9472d9bd89802e5a',
-    score: 1.1,
+    score: 0,
     picks: 2,
   },
   {
     title: 'Heat Waves',
     artist: 'Glass Animals',
     cover: 'https://i.scdn.co/image/ab67616d00001e029e495fb707973f3390850eea',
-    score: 0,
-    picks: 0,
+    score: -1.4,
+    picks: 1,
   },
 ]
 
-// The gap above each row. A row nobody has picked has no measurable gap, so it
-// is left out of both the scale and the spacing.
+// The full score range, negatives included, so nothing is clipped at zero.
+const SCORES = ROWS.map((row) => row.score)
+const MIN_SCORE = Math.min(...SCORES)
+const MAX_SCORE = Math.max(...SCORES)
+/** 0 at the worst score, 1 at the best. */
+const rankStrength = (score: number) =>
+  MAX_SCORE === MIN_SCORE ? 0.5 : (score - MIN_SCORE) / (MAX_SCORE - MIN_SCORE)
+
+// Separation between neighbours, for the band rule.
 const GAPS = ROWS.map((row, i) => (i === 0 ? 0 : ROWS[i - 1].score - row.score))
-const REAL_GAPS = GAPS.filter((_, i) => i > 0 && ROWS[i].picks > 0)
-const MAX_GAP = Math.max(...REAL_GAPS)
-const MEDIAN_GAP = [...REAL_GAPS].sort((a, b) => a - b)[
-  Math.floor(REAL_GAPS.length / 2)
-]
+const MAX_GAP = Math.max(...GAPS)
+const BAND_GAP = MAX_GAP * 0.5
+const startsBand = (i: number) => i > 0 && GAPS[i] >= BAND_GAP
 
-const weight = (i: number) =>
-  ROWS[i].picks === 0 ? 0 : Math.max(0, GAPS[i]) / MAX_GAP
+const GROW_FLOOR = 1
+const GROW_SPAN = 2
+const TINT_FLOOR = 0.03
+const TINT_SPAN = 0.17
 
-const startsBand = (i: number) =>
-  i > 0 && ROWS[i].picks > 0 && GAPS[i] >= 2 * MEDIAN_GAP
+/** An unpicked row has no measured strength, so it sits at the floor. */
+const grow = (row: Row) =>
+  GROW_FLOOR +
+  (row.picks === 0 ? 0 : rankStrength(row.score) * GROW_SPAN)
 
-const ROW_NATURAL = 52
+const tint = (row: Row) =>
+  TINT_FLOOR + (row.picks === 0 ? 0 : rankStrength(row.score) * TINT_SPAN)
 
 function RankRow({
   row,
   rank,
   className = '',
   style,
-  barFraction,
 }: {
   row: Row
   rank: number
   className?: string
   style?: React.CSSProperties
-  barFraction?: number
 }) {
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
 
   return (
     <div
-      className={`relative flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/70 p-2 shadow-sm backdrop-blur-md ${
+      className={`relative flex items-center gap-2 overflow-hidden rounded-lg border border-slate-200/80 bg-white/70 p-2 shadow-sm backdrop-blur-md ${
         rank <= 3 ? 'ring-1 ring-yellow-500/40' : ''
       } ${className}`}
       style={style}
@@ -115,36 +114,17 @@ function RankRow({
       </div>
 
       {row.picks === 0 ? (
-        <span className='shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700'>
-          not picked yet
-        </span>
+        <span className='shrink-0 text-[10px] text-slate-400'>not picked</span>
       ) : (
         <div className='shrink-0 text-right'>
-          <div className='text-xs font-bold text-slate-600'>
-            {row.score.toFixed(1)}
-          </div>
-        </div>
-      )}
-
-      {barFraction !== undefined && (
-        <div className='absolute inset-x-2 bottom-1 h-0.5 rounded-full bg-slate-200'>
-          <div
-            className='h-0.5 rounded-full bg-slate-400'
-            style={{ width: `${barFraction * 100}%` }}
-          />
+          <div className='text-xs font-bold text-slate-600'>{row.score.toFixed(1)}</div>
         </div>
       )}
     </div>
   )
 }
 
-function Sidebar({
-  n,
-  children,
-}: {
-  n: number
-  children: React.ReactNode
-}) {
+function Sidebar({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <div className='flex h-full min-w-0 flex-col overflow-hidden border-l border-slate-200/80 bg-white/70 backdrop-blur-md'>
       <div className='border-b border-slate-200 p-4'>
@@ -165,8 +145,8 @@ function Sidebar({
   )
 }
 
-/** 1. The row gets taller where the gap above it is bigger. */
-function HeightVariant() {
+/** 1. Row height follows the score itself, across the full range. */
+function HeightByScoreVariant() {
   return (
     <>
       {ROWS.map((row, i) => (
@@ -174,38 +154,14 @@ function HeightVariant() {
           key={row.title}
           row={row}
           rank={i + 1}
-          style={{ flexGrow: 1 + weight(i), flexBasis: 0, minHeight: ROW_NATURAL }}
+          style={{ flexGrow: grow(row), flexBasis: 0, minHeight: 48 }}
         />
       ))}
     </>
   )
 }
 
-/** 2. Fixed rows, with the leftover space handed to the gaps. */
-function AirVariant() {
-  return (
-    <>
-      {ROWS.map((row, i) => (
-        <div key={row.title} className='contents'>
-          {i > 0 && (
-            <div
-              style={{ flexGrow: weight(i) * 3, flexBasis: 0, minHeight: 0 }}
-              aria-hidden
-            />
-          )}
-          <RankRow
-            row={row}
-            rank={i + 1}
-            className='shrink-0'
-            style={{ height: ROW_NATURAL, flex: '0 0 auto' }}
-          />
-        </div>
-      ))}
-    </>
-  )
-}
-
-/** 3. Equal rows, grouped wherever the gap is well above typical. */
+/** 3. Equal rows, split wherever the separation is at least half the largest. */
 function BandVariant() {
   return (
     <>
@@ -219,7 +175,7 @@ function BandVariant() {
           <RankRow
             row={row}
             rank={i + 1}
-            style={{ flexGrow: 1, flexBasis: 0, minHeight: ROW_NATURAL }}
+            style={{ flexGrow: 1, flexBasis: 0, minHeight: 48 }}
           />
         </div>
       ))}
@@ -227,8 +183,8 @@ function BandVariant() {
   )
 }
 
-/** 4. Equal rows, with the gap drawn as a bar along the bottom of each row. */
-function BarVariant() {
+/** 5. Equal rows, with a faint tint whose strength follows the score. */
+function GradientVariant() {
   return (
     <>
       {ROWS.map((row, i) => (
@@ -236,8 +192,14 @@ function BarVariant() {
           key={row.title}
           row={row}
           rank={i + 1}
-          barFraction={i < ROWS.length - 1 ? weight(i + 1) : 0}
-          style={{ flexGrow: 1, flexBasis: 0, minHeight: ROW_NATURAL }}
+          style={{
+            flexGrow: 1,
+            flexBasis: 0,
+            minHeight: 48,
+            backgroundImage: `linear-gradient(90deg, rgba(45, 212, 191, ${tint(
+              row,
+            ).toFixed(3)}) 0%, rgba(255, 255, 255, 0) 75%)`,
+          }}
         />
       ))}
     </>
@@ -246,18 +208,15 @@ function BarVariant() {
 
 export default function GapsDemoPage() {
   return (
-    <main className='grid h-screen grid-cols-4 bg-gradient-to-b from-white to-sky-50 text-slate-900'>
+    <main className='grid h-screen grid-cols-3 bg-gradient-to-b from-white to-sky-50 text-slate-900'>
       <Sidebar n={1}>
-        <HeightVariant />
-      </Sidebar>
-      <Sidebar n={2}>
-        <AirVariant />
+        <HeightByScoreVariant />
       </Sidebar>
       <Sidebar n={3}>
         <BandVariant />
       </Sidebar>
-      <Sidebar n={4}>
-        <BarVariant />
+      <Sidebar n={5}>
+        <GradientVariant />
       </Sidebar>
     </main>
   )
