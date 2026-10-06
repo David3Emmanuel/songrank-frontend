@@ -67,7 +67,7 @@ export type SlotIntent =
 
 export type PlaybackPhase = 'active' | 'suspended'
 
-/** Slots 0,1 back the pair on screen; slots 2,3 the preloaded one. */
+/** Slots 0,1 are the first pair, 2,3 the second, 4,5 the third. */
 export function groupOfSlot(slotIndex: number): Group {
   return Math.floor(slotIndex / PLAYERS_PER_GROUP) as Group
 }

@@ -57,6 +57,13 @@ function getVideoId(track: Track): string {
  * With autoplay on, every preload started playing, so the off-screen pair was
  * audible-in-waiting and only the volume kept it quiet.
  */
+/**
+ * How many times a slot is reloaded for the same video before the pool gives up
+ * on it and looks for a different one. A network fault usually clears on the
+ * first remount; anything that survives two is not a blip.
+ */
+const MAX_RELOADS = 2
+
 const PLAYER_OPTS = {
   height: '1',
   width: '1',
@@ -167,6 +174,8 @@ interface SlotState {
   isFallback: boolean
   /** Last state the player reported; `YT_UNKNOWN` until it reports one. */
   ytState: number
+  /** Bumped to remount this slot's player after a transient fault. */
+  reloadKey: number
 }
 
 const EMPTY_SLOT: SlotState = {
@@ -178,6 +187,7 @@ const EMPTY_SLOT: SlotState = {
   isFallbackLoading: false,
   isFallback: false,
   ytState: YT_UNKNOWN,
+  reloadKey: 0,
 }
 
 /**
@@ -258,7 +268,7 @@ export default function RankingArena() {
     isPaused || !isTabVisible ? 'suspended' : 'active'
 
   // ── Pool state ──────────────────────────────────────────────────────────────
-  // Slots 0,1 = group-0 pair   Slots 2,3 = group-1 pair
+  // Three pairs of slots: the one on screen, the one ahead, the one behind.
   // activeGroup determines which pair the user currently sees.
   const [slots, setSlots] = useState<SlotState[]>(emptySlots())
   // Mirror of slots readable synchronously in async callbacks (no stale closure)
@@ -293,6 +303,8 @@ export default function RankingArena() {
   // Tracks completedComparisons at the last transition so we can tell
   // forward vote (count went up) from undo (count went down)
   const prevCompletedInTransitionRef = useRef(0)
+  /** How many times each slot has been reloaded for the video it holds. */
+  const reloadsRef = useRef<Array<{ videoId: string; attempts: number }>>([])
 
   // ── Pool helpers ────────────────────────────────────────────────────────────
 
@@ -327,11 +339,39 @@ export default function RankingArena() {
   // ── Fallback search ─────────────────────────────────────────────────────────
 
   const handleSlotError = useCallback(
-    async (slotIdx: number) => {
+    async (slotIdx: number, code?: number) => {
       const slot = slotsRef.current[slotIdx]
 
-      // Already tried fallback or no track — mark as error and bail
-      if (!slot.track || slot.isFallback) {
+      if (!slot.track) {
+        updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
+        return
+      }
+
+      // A player or network fault is worth another go at the same video. A video
+      // that is gone, or that will not embed, is not: those want a different one,
+      // which is what the search below is for. Codes 100, 101 and 150 are the
+      // permanent ones; 2 and 5 are the player and HTML5 faults.
+      const transient = code === undefined || code === 2 || code === 5
+      const seen = reloadsRef.current[slotIdx]
+      const attempts = seen && seen.videoId === slot.videoId ? seen.attempts : 0
+
+      if (transient && attempts < MAX_RELOADS) {
+        reloadsRef.current[slotIdx] = {
+          videoId: slot.videoId,
+          attempts: attempts + 1,
+        }
+        // The remounted player knows nothing, so forget what was applied to it.
+        appliedRef.current[slotIdx] = null
+        updateSlot(slotIdx, {
+          isLoading: true,
+          hasError: false,
+          reloadKey: slot.reloadKey + 1,
+        })
+        return
+      }
+
+      // On the fallback already, or out of retries: nothing left to try.
+      if (slot.isFallback) {
         updateSlot(slotIdx, { isLoading: false, hasError: true, isFallbackLoading: false })
         return
       }
@@ -346,6 +386,7 @@ export default function RankingArena() {
         const { videoId }: { videoId: string | null } = await r.json()
 
         if (videoId) {
+          reloadsRef.current[slotIdx] = { videoId, attempts: 0 }
           updateSlot(slotIdx, {
             videoId,
             isLoading: true,
@@ -675,10 +716,13 @@ export default function RankingArena() {
     <div className='relative flex h-screen overflow-hidden bg-gradient-to-b from-white to-sky-50'>
       <LandingBackground />
 
-      {/* ── Always-mounted pool players (4 iframes, always hidden) ── */}
+      {/* ── Always-mounted pool players, always hidden ──
+          The key carries the reload counter: remounting is how a slot recovers
+          from a transient fault, since react-youtube only reloads on a changed
+          videoId and the video here is deliberately the same one. */}
       {slots.map((slot, i) =>
         slot.videoId ? (
-          <div key={i} aria-hidden style={OFFSCREEN}>
+          <div key={`${i}-${slot.reloadKey}`} aria-hidden style={OFFSCREEN}>
             <YouTube
               videoId={slot.videoId}
               opts={PLAYER_OPTS}
@@ -692,7 +736,9 @@ export default function RankingArena() {
               onStateChange={(e: YouTubeEvent) =>
                 handleSlotStateChange(i, e.data)
               }
-              onError={() => handleSlotError(i)}
+              onError={(e: YouTubeEvent<number>) =>
+                handleSlotError(i, e.data)
+              }
             />
           </div>
         ) : null,
