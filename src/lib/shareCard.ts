@@ -1,6 +1,7 @@
 import type { Track, ShareCardConfig } from './types'
 import { cardSubtitle, PLACE_COLOURS } from './scoreDisplay'
 import { coverCrop, formatDurationMs, largerThumbnailUrl } from './videoMetadata'
+import { cardLayout } from './shareLayout'
 
 interface Palette {
   background: [string, string]
@@ -138,12 +139,24 @@ export async function generateShareCard({
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get canvas context')
 
-  const dimensions = {
-    '9:16': { width: 1080, height: 1920 },
-    '1:1': { width: 1080, height: 1080 },
-    '16:9': { width: 1920, height: 1080 },
-  }
-  const { width, height } = dimensions[config.format]
+  const shown = tracks.slice(0, config.top_n)
+  const layout = cardLayout(config.format, shown.length)
+  const {
+    width,
+    height,
+    tall,
+    marginX,
+    headerY,
+    subtitleY,
+    podiumTop,
+    podiumCover,
+    rowHeight,
+    rowArt,
+    rowGap,
+    rowsTop,
+  } = layout
+  const podiumText = layout.podiumTextBlock
+
   canvas.width = width
   canvas.height = height
 
@@ -154,23 +167,10 @@ export async function generateShareCard({
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
 
-  const tall = config.format === '9:16'
-  const shown = tracks.slice(0, config.top_n)
   const podium = shown.slice(0, 3)
   const rest = shown.slice(3)
-
-  // Metrics per shape. The square and wide cards have half the height of a
-  // story, so everything below the podium is drawn tight.
-  const headerY = tall ? 150 : 116
-  const subtitleY = tall ? 214 : 172
-  const podiumTop = tall ? 300 : 210
-  const podiumCover = tall ? 210 : 150
-  const podiumText = tall ? 100 : 78
-  const rowHeight = tall ? 150 : 76
-  const rowArt = tall ? 108 : 52
-  const rowGap = tall ? 22 : 14
-  const rowsTop = podiumTop + podiumCover + podiumText + (tall ? 46 : 26)
-  const marginX = tall ? 70 : 60
+  const podiumTitleY = podiumTop + podiumCover + Math.round(podiumText * 0.5)
+  const podiumArtistY = podiumTop + podiumCover + Math.round(podiumText * 0.85)
 
   // Header
   ctx.textAlign = 'center'
@@ -231,7 +231,7 @@ export async function generateShareCard({
         ctx.fillText(
           truncate(ctx, track.title, columnWidth + 20),
           x + columnWidth / 2,
-          podiumTop + podiumCover + (tall ? 46 : 36),
+          podiumTitleY,
         )
 
         ctx.fillStyle = colours.muted
@@ -239,7 +239,7 @@ export async function generateShareCard({
         ctx.fillText(
           truncate(ctx, track.artist, columnWidth + 20),
           x + columnWidth / 2,
-          podiumTop + podiumCover + (tall ? 82 : 64),
+          podiumArtistY,
         )
       }
 
@@ -248,6 +248,10 @@ export async function generateShareCard({
   }
 
   // Everything past third
+  const rowTitle = Math.min(34, Math.max(18, Math.round(rowHeight * 0.42)))
+  const rowSub = Math.min(26, Math.max(15, Math.round(rowHeight * 0.32)))
+  const rowBadge = Math.min(26, Math.max(16, Math.round(rowHeight * 0.36)))
+
   rest.forEach((track, index) => {
     const place = index + 4
     const cover = covers[index + 3] ?? null
@@ -262,18 +266,17 @@ export async function generateShareCard({
     ctx.stroke()
 
     // Place badge
-    const badgeRadius = tall ? 26 : 22
     const badgeX = marginX + (tall ? 50 : 42)
     const badgeY = y + rowHeight / 2
     ctx.beginPath()
-    ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+    ctx.arc(badgeX, badgeY, rowBadge, 0, Math.PI * 2)
     ctx.fillStyle = colour
     ctx.fill()
 
     ctx.textAlign = 'center'
     ctx.fillStyle = '#ffffff'
-    ctx.font = `bold ${tall ? 28 : 24}px system-ui, sans-serif`
-    ctx.fillText(String(place), badgeX, badgeY + (tall ? 10 : 8))
+    ctx.font = `bold ${Math.round(rowBadge * 1.1)}px system-ui, sans-serif`
+    ctx.fillText(String(place), badgeX, badgeY + Math.round(rowBadge * 0.4))
 
     // Cover
     const artX = marginX + (tall ? 96 : 80)
@@ -287,19 +290,19 @@ export async function generateShareCard({
 
     ctx.textAlign = 'left'
     ctx.fillStyle = colours.text
-    ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
+    ctx.font = `bold ${rowTitle}px system-ui, sans-serif`
     ctx.fillText(
       truncate(ctx, track.title, maxWidth),
       textX,
-      y + rowHeight / 2 - (tall ? 10 : 6),
+      y + rowHeight / 2 - Math.round(rowSub * 0.4),
     )
 
     ctx.fillStyle = colours.muted
-    ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
+    ctx.font = `${rowSub}px system-ui, sans-serif`
     ctx.fillText(
       truncate(ctx, length ? `${track.artist} · ${length}` : track.artist, maxWidth),
       textX,
-      y + rowHeight / 2 + (tall ? 32 : 24),
+      y + rowHeight / 2 + Math.round(rowSub * 1.2),
     )
   })
 
@@ -307,7 +310,7 @@ export async function generateShareCard({
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.muted
   ctx.font = `${tall ? 32 : 28}px system-ui, sans-serif`
-  ctx.fillText('SongRank', width / 2, height - (tall ? 64 : 46))
+  ctx.fillText('SongRank', width / 2, layout.footerY)
 
   // A blob rather than a data URL: base64 inflates the bytes by a third, and
   // the share sheet wants a Blob anyway.
