@@ -48,14 +48,14 @@ export default function ResultsView() {
           </button>
           <button
             onClick={() => setShowShareModal(true)}
-            className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition-colors'
+            className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors'
           >
             <Share2 size={20} />
             Share Results
           </button>
           <button
             onClick={() => setShowDuelModal(true)}
-            className='flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors'
+            className='flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors'
           >
             <Users size={20} />
             Challenge Friend
