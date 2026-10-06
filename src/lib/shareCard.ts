@@ -156,14 +156,17 @@ export async function generateShareCard({
     rowsTop,
     runnerCover,
     podiumStacked,
+    podium: podiumFonts,
+    runner: runnerFonts,
+    headerFont,
+    subtitleFont,
+    footerFont,
+    rowTitleFont,
+    rowSubFont,
+    rowBadgeRadius,
     podiumColumnGap,
     podiumRunnerTop,
-    podiumDurationY,
-    runnerTitleY,
-    runnerArtistY,
-    runnerDurationY,
   } = layout
-  const podiumText = layout.podiumTextBlock
 
   canvas.width = width
   canvas.height = height
@@ -177,13 +180,11 @@ export async function generateShareCard({
 
   const podium = shown.slice(0, 3)
   const rest = shown.slice(3)
-  const podiumTitleY = podiumTop + podiumCover + Math.round(podiumText * 0.5)
-  const podiumArtistY = podiumTop + podiumCover + Math.round(podiumText * 0.85)
 
   // Header
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.text
-  ctx.font = `bold ${tall ? 66 : 56}px system-ui, sans-serif`
+  ctx.font = `bold ${headerFont}px system-ui, sans-serif`
   ctx.fillText(
     truncate(ctx, playlistName, width - marginX * 2),
     width / 2,
@@ -191,7 +192,7 @@ export async function generateShareCard({
   )
 
   ctx.fillStyle = colours.muted
-  ctx.font = `${tall ? 36 : 32}px system-ui, sans-serif`
+  ctx.font = `${subtitleFont}px system-ui, sans-serif`
   ctx.fillText(cardSubtitle(shown.length, totalSongs), width / 2, subtitleY)
 
   // Covers up front, in parallel: one round trip rather than one per song.
@@ -216,6 +217,7 @@ export async function generateShareCard({
 
   const caption = (
     track: Track | undefined,
+    metrics: { titleFont: number; artistFont: number; durationFont: number },
     cx: number,
     titleY: number,
     artistY: number,
@@ -226,16 +228,16 @@ export async function generateShareCard({
 
     ctx.textAlign = 'center'
     ctx.fillStyle = colours.text
-    ctx.font = `bold ${tall ? 34 : 28}px system-ui, sans-serif`
+    ctx.font = `bold ${metrics.titleFont}px system-ui, sans-serif`
     ctx.fillText(truncate(ctx, track.title, maxWidth), cx, titleY)
 
     ctx.fillStyle = colours.muted
-    ctx.font = `${tall ? 26 : 22}px system-ui, sans-serif`
+    ctx.font = `${metrics.artistFont}px system-ui, sans-serif`
     ctx.fillText(truncate(ctx, track.artist, maxWidth), cx, artistY)
 
     const length = formatDurationMs(track.durationMs)
     if (length) {
-      ctx.font = `${tall ? 24 : 20}px system-ui, sans-serif`
+      ctx.font = `${metrics.durationFont}px system-ui, sans-serif`
       ctx.fillText(length, cx, durationY)
     }
   }
@@ -247,10 +249,11 @@ export async function generateShareCard({
     badge(1, width / 2, podiumTop - (tall ? 18 : 14))
     caption(
       podium[0],
+      podiumFonts,
       width / 2,
-      podiumTitleY,
-      podiumArtistY,
-      podiumDurationY,
+      podiumTop + podiumCover + podiumFonts.titleY,
+      podiumTop + podiumCover + podiumFonts.artistY,
+      podiumTop + podiumCover + podiumFonts.durationY,
       width - marginX * 2,
     )
 
@@ -272,10 +275,11 @@ export async function generateShareCard({
       badge(place, x + runnerCover / 2, podiumRunnerTop - (tall ? 18 : 14))
       caption(
         podium[place - 1],
+        runnerFonts,
         x + runnerCover / 2,
-        runnerTitleY,
-        runnerArtistY,
-        runnerDurationY,
+        podiumRunnerTop + runnerCover + runnerFonts.titleY,
+        podiumRunnerTop + runnerCover + runnerFonts.artistY,
+        podiumRunnerTop + runnerCover + runnerFonts.durationY,
         runnerCover + 40,
       )
       x += runnerCover + podiumColumnGap
@@ -309,10 +313,11 @@ export async function generateShareCard({
       badge(place, coverX + coverSize / 2, coverY - (tall ? 18 : 14))
       caption(
         track,
+        podiumFonts,
         x + columnWidth / 2,
-        podiumTitleY,
-        podiumArtistY,
-        podiumDurationY,
+        podiumTop + podiumCover + podiumFonts.titleY,
+        podiumTop + podiumCover + podiumFonts.artistY,
+        podiumTop + podiumCover + podiumFonts.durationY,
         columnWidth + 20,
       )
 
@@ -321,9 +326,7 @@ export async function generateShareCard({
   }
 
   // Everything past third
-  const rowTitle = Math.min(34, Math.max(18, Math.round(rowHeight * 0.42)))
-  const rowSub = Math.min(26, Math.max(15, Math.round(rowHeight * 0.32)))
-  const rowBadge = Math.min(26, Math.max(16, Math.round(rowHeight * 0.36)))
+
 
   rest.forEach((track, index) => {
     const place = index + 4
@@ -342,14 +345,14 @@ export async function generateShareCard({
     const badgeX = marginX + (tall ? 50 : 42)
     const badgeY = y + rowHeight / 2
     ctx.beginPath()
-    ctx.arc(badgeX, badgeY, rowBadge, 0, Math.PI * 2)
+    ctx.arc(badgeX, badgeY, rowBadgeRadius, 0, Math.PI * 2)
     ctx.fillStyle = colour
     ctx.fill()
 
     ctx.textAlign = 'center'
     ctx.fillStyle = '#ffffff'
-    ctx.font = `bold ${Math.round(rowBadge * 1.1)}px system-ui, sans-serif`
-    ctx.fillText(String(place), badgeX, badgeY + Math.round(rowBadge * 0.4))
+    ctx.font = `bold ${Math.round(rowBadgeRadius * 1.1)}px system-ui, sans-serif`
+    ctx.fillText(String(place), badgeX, badgeY + Math.round(rowBadgeRadius * 0.4))
 
     // Cover
     const artX = marginX + (tall ? 96 : 80)
@@ -363,26 +366,26 @@ export async function generateShareCard({
 
     ctx.textAlign = 'left'
     ctx.fillStyle = colours.text
-    ctx.font = `bold ${rowTitle}px system-ui, sans-serif`
+    ctx.font = `bold ${rowTitleFont}px system-ui, sans-serif`
     ctx.fillText(
       truncate(ctx, track.title, maxWidth),
       textX,
-      y + rowHeight / 2 - Math.round(rowSub * 0.4),
+      y + rowHeight / 2 - Math.round(rowSubFont * 0.4),
     )
 
     ctx.fillStyle = colours.muted
-    ctx.font = `${rowSub}px system-ui, sans-serif`
+    ctx.font = `${rowSubFont}px system-ui, sans-serif`
     ctx.fillText(
       truncate(ctx, length ? `${track.artist} · ${length}` : track.artist, maxWidth),
       textX,
-      y + rowHeight / 2 + Math.round(rowSub * 1.2),
+      y + rowHeight / 2 + Math.round(rowSubFont * 1.2),
     )
   })
 
   // Footer. No domain is claimed, since this app does not have one to promise.
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.muted
-  ctx.font = `${tall ? 32 : 28}px system-ui, sans-serif`
+  ctx.font = `${footerFont}px system-ui, sans-serif`
   ctx.fillText('SongRank', width / 2, layout.footerY)
 
   // A blob rather than a data URL: base64 inflates the bytes by a third, and

@@ -100,13 +100,46 @@ test('the content is centred rather than pinned under the header', () => {
       const layout = cardLayout(format, count)
       const regionTop = Math.round(layout.height * 0.2)
       const above = layout.podiumTop - regionTop
-      const below = layout.footerY - layoutBottom(layout)
+      const below = layout.contentBottomLimit - layoutBottom(layout)
 
       assert.ok(above >= 0, `${format}/${count}: content went above the region`)
+      assert.ok(
+        below >= 0,
+        `${format}/${count}: content ran into the footer, by ${-below}`,
+      )
       assert.ok(
         Math.abs(above - below) <= 2,
         `${format} with ${count} songs is not centred: ${above} above, ${below} below`,
       )
+    }
+  }
+})
+
+test('caption lines cannot overlap each other or the row below', () => {
+  for (const format of FORMATS) {
+    for (const count of COUNTS) {
+      const layout = cardLayout(format, count)
+      const groups = [layout.podium]
+      if (layout.podiumStacked) groups.push(layout.runner)
+
+      for (const group of groups) {
+        assert.ok(
+          group.titleY >= group.titleFont,
+          `${format}/${count}: the title has no room above it`,
+        )
+        assert.ok(
+          group.artistY - group.titleY >= group.titleFont,
+          `${format}/${count}: the artist crowds the title`,
+        )
+        assert.ok(
+          group.durationY - group.artistY >= group.artistFont,
+          `${format}/${count}: the length crowds the artist`,
+        )
+        assert.ok(
+          group.block >= group.durationY,
+          `${format}/${count}: the caption block does not hold the length`,
+        )
+      }
     }
   }
 })

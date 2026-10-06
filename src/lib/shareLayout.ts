@@ -2,16 +2,16 @@
  * The geometry of a share card, worked out from the shape and how many songs it
  * has to show.
  *
- * Fixed sizes could not hold every combination: a top 10 on a square card needs a
- * podium plus seven rows inside 1080 pixels, which the first attempt overflowed.
- * Everything here is derived from the height instead, and the two blocks share
- * the space: the rows take a preferred height and the podium cover absorbs what
- * is left, so a three song card gets a large podium rather than a small one
- * stranded under the header.
+ * Everything is derived from the height, and the two blocks share the space: the
+ * rows take a preferred height and the podium cover absorbs what is left, so a
+ * three song card gets a large podium rather than a small one stranded under the
+ * header.
  *
- * The cover is bounded by width as well as height, because the podium is three
- * covers across: the winner at full size and the other two at 78 per cent, so the
- * cover cannot be larger than about a third of the usable width.
+ * Caption positions come from the font sizes rather than from fractions of a
+ * block. Spacing three lines by eye had them crowding each other, and the
+ * footer's reserve counted its baseline but not the text above it, which put
+ * "SongRank" on top of the last row. Both are now impossible by construction, and
+ * both are asserted in the tests.
  */
 
 import type { ShareCardConfig } from './types'
@@ -39,13 +39,53 @@ const MAX_COVER_FRACTION = 0.42
 /** Used only when the rows cannot fit otherwise. */
 const HARD_MIN_COVER_FRACTION = 0.12
 
+export interface CaptionMetrics {
+  titleFont: number
+  artistFont: number
+  durationFont: number
+  titleY: number
+  artistY: number
+  durationY: number
+  /** Height needed below a cover to hold all three lines. */
+  block: number
+}
+
+/** Baselines derived from the fonts, so the lines cannot overlap each other. */
+function caption(
+  titleFont: number,
+  artistFont: number,
+  durationFont: number,
+): CaptionMetrics {
+  // Each line is spaced by the size of the line above it, not by its own, or a
+  // large title would run into a small artist.
+  const titleY = Math.round(titleFont * 1.2)
+  const artistY = titleY + Math.round(titleFont * 1.3)
+  const durationY = artistY + Math.round(artistFont * 1.35)
+
+  return {
+    titleFont,
+    artistFont,
+    durationFont,
+    titleY,
+    artistY,
+    durationY,
+    block: durationY + Math.round(durationFont * 0.4),
+  }
+}
+
 export interface CardLayout {
   width: number
   height: number
   tall: boolean
   marginX: number
   headerY: number
+  headerFont: number
   subtitleY: number
+  subtitleFont: number
+  footerY: number
+  footerFont: number
+  /** Content must end above this, or it collides with the footer text. */
+  contentBottomLimit: number
   /** A top three on a tall card stacks, since three squares across cannot fill it. */
   podiumStacked: boolean
   /** Top of the winner's cover, after the content is centred. */
@@ -57,21 +97,18 @@ export interface CardLayout {
   /** Top of the second and third covers, on a stacked podium only. */
   podiumRunnerTop: number
   podiumColumnGap: number
-  podiumTextBlock: number
-  podiumTitleY: number
-  podiumArtistY: number
-  podiumDurationY: number
-  runnerTitleY: number
-  runnerArtistY: number
-  runnerDurationY: number
+  podium: CaptionMetrics
+  runner: CaptionMetrics
   /** Top of the first row past the podium. */
   rowsTop: number
   rowHeight: number
   rowArt: number
   rowGap: number
+  rowTitleFont: number
+  rowSubFont: number
+  rowBadgeRadius: number
   /** Songs past the podium, so 0 for a card of three. */
   rowCount: number
-  footerY: number
 }
 
 export function cardLayout(
@@ -82,20 +119,29 @@ export function cardLayout(
   const tall = format === '9:16'
   const at = (fraction: number) => Math.round(height * fraction)
 
+  const headerFont = tall ? 66 : 56
+  const subtitleFont = tall ? 36 : 32
+  const footerFont = tall ? 32 : 28
+
   const headerY = at(0.105)
   const subtitleY = at(0.152)
   const podiumTopBase = at(0.2)
-  const podiumTextBlock = at(0.075)
-  const footerY = height - at(0.075)
+  const footerY = height - at(0.055)
+  // The footer's own text rises above its baseline and must not be run into.
+  const contentBottomLimit = footerY - Math.round(footerFont * 1.4)
   const marginX = tall ? 70 : 60
   const podiumColumnGap = tall ? COLUMN_GAP.tall : COLUMN_GAP.compact
 
+  const podiumCaption = tall ? caption(42, 32, 27) : caption(30, 24, 20)
+  const runnerCaption = tall ? caption(36, 28, 24) : caption(26, 21, 18)
+
   // The space between the header and the footer, shared by the podium and rows.
-  const region = footerY - podiumTopBase
+  const region = contentBottomLimit - podiumTopBase
 
   const rowCount = Math.max(0, songCount - 3)
   const rowGap = at(0.012)
   const minRow = at(MIN_ROW_FRACTION)
+  const preferredRow = at(PREFERRED_ROW_FRACTION)
   const leadIn = rowCount > 0 ? at(0.02) : 0
 
   // A top three on a tall card stacks instead: three squares across a 1080 wide
@@ -117,24 +163,21 @@ export function cardLayout(
     Math.max(low, Math.min(high, value))
 
   const preferredRows =
-    rowCount > 0
-      ? rowCount * at(PREFERRED_ROW_FRACTION) + (rowCount - 1) * rowGap
-      : 0
+    rowCount > 0 ? rowCount * preferredRow + (rowCount - 1) * rowGap : 0
 
   // The podium takes the slack, within bounds.
   let podiumCover = clamp(
-    region - preferredRows - leadIn - podiumTextBlock,
+    region - preferredRows - leadIn - podiumCaption.block,
     minCover,
     maxCover,
   )
 
   const heightPerRow = (cover: number) => {
     if (rowCount === 0) return 0
-    const space = region - cover - leadIn - podiumTextBlock
+    const space = region - cover - leadIn - podiumCaption.block
     return Math.floor((space - (rowCount - 1) * rowGap) / rowCount)
   }
 
-  const preferredRow = at(PREFERRED_ROW_FRACTION)
   let rowHeight = heightPerRow(podiumCover)
 
   // Rows that came out too tight take their space back from the podium.
@@ -143,7 +186,7 @@ export function cardLayout(
       region -
         (rowCount * minRow + (rowCount - 1) * rowGap) -
         leadIn -
-        podiumTextBlock,
+        podiumCaption.block,
       Math.min(at(HARD_MIN_COVER_FRACTION), widthCap),
       maxCover,
     )
@@ -154,18 +197,19 @@ export function cardLayout(
   // rest as even margin rather than a row the size of a postcard.
   if (rowHeight > preferredRow) rowHeight = preferredRow
 
-  // A stacked podium has two cover blocks to fit, so the winner's cover is sized
-  // from the height that is left once the runners and both captions are counted.
+  // A stacked podium has two cover blocks and two caption blocks to fit.
   let runnerCover = Math.round(podiumCover * RUNNER_COVER_RATIO)
   if (stacked) {
-    const fits = (region - podiumTextBlock * 1.9) / (1 + STACKED_RUNNER_RATIO)
+    const fits =
+      (region - podiumCaption.block - runnerCaption.block) /
+      (1 + STACKED_RUNNER_RATIO)
     podiumCover = Math.max(minCover, Math.min(widthCap, Math.floor(fits)))
     runnerCover = Math.round(podiumCover * STACKED_RUNNER_RATIO)
   }
 
   const podiumBlock = stacked
-    ? podiumCover + podiumTextBlock + runnerCover + Math.round(podiumTextBlock * 0.9)
-    : podiumCover + podiumTextBlock
+    ? podiumCover + podiumCaption.block + runnerCover + runnerCaption.block
+    : podiumCover + podiumCaption.block
 
   // Leftover space is split above and below, so the card is filled rather than
   // pinned under the header.
@@ -176,9 +220,7 @@ export function cardLayout(
   const slack = Math.max(0, region - contentHeight)
   const podiumTop = podiumTopBase + Math.floor(slack / 2)
 
-  const podiumRunnerTop = podiumTop + podiumCover + podiumTextBlock
-  const captionOffset = (fraction: number) => Math.round(podiumTextBlock * fraction)
-
+  const podiumRunnerTop = podiumTop + podiumCover + podiumCaption.block
   const rowArt = rowHeight > 0 ? Math.max(24, rowHeight - (tall ? 40 : 22)) : 0
 
   return {
@@ -187,26 +229,28 @@ export function cardLayout(
     tall,
     marginX,
     headerY,
+    headerFont,
     subtitleY,
+    subtitleFont,
+    footerY,
+    footerFont,
+    contentBottomLimit,
     podiumStacked: stacked,
     podiumTop,
     podiumCover,
     runnerCover,
     podiumRunnerTop,
     podiumColumnGap,
-    podiumTextBlock,
-    podiumTitleY: podiumTop + podiumCover + captionOffset(stacked ? 0.3 : 0.42),
-    podiumArtistY: podiumTop + podiumCover + captionOffset(stacked ? 0.55 : 0.72),
-    podiumDurationY: podiumTop + podiumCover + captionOffset(stacked ? 0.78 : 0.98),
-    runnerTitleY: podiumRunnerTop + runnerCover + captionOffset(0.34),
-    runnerArtistY: podiumRunnerTop + runnerCover + captionOffset(0.6),
-    runnerDurationY: podiumRunnerTop + runnerCover + captionOffset(0.86),
+    podium: podiumCaption,
+    runner: runnerCaption,
     rowsTop: podiumTop + podiumBlock + leadIn,
     rowHeight,
     rowArt,
     rowGap,
+    rowTitleFont: Math.min(34, Math.max(18, Math.round(rowHeight * 0.42))),
+    rowSubFont: Math.min(26, Math.max(15, Math.round(rowHeight * 0.32))),
+    rowBadgeRadius: Math.min(26, Math.max(16, Math.round(rowHeight * 0.36))),
     rowCount,
-    footerY,
   }
 }
 
@@ -221,14 +265,10 @@ export function layoutBottom(layout: CardLayout): number {
   }
 
   if (layout.podiumStacked) {
-    return (
-      layout.podiumRunnerTop +
-      layout.runnerCover +
-      Math.round(layout.podiumTextBlock * 0.9)
-    )
+    return layout.podiumRunnerTop + layout.runnerCover + layout.runner.block
   }
 
-  return layout.podiumTop + layout.podiumCover + layout.podiumTextBlock
+  return layout.podiumTop + layout.podiumCover + layout.podium.block
 }
 
 /** The full width the podium covers take up, for checking it fits across. */
