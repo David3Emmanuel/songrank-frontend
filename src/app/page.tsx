@@ -484,7 +484,8 @@ function DashboardContent() {
                     onClick={() => addToDraft(candidates, foundFor.query)}
                     className='rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600'
                   >
-                    Add all
+                    Add all {candidates.length} song
+                    {candidates.length === 1 ? '' : 's'}
                   </button>
                   <button
                     onClick={() => {
@@ -658,7 +659,7 @@ function DashboardContent() {
                                   }
                                   className='rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-600'
                                 >
-                                  Add all
+                                  Add all {open.tracks.length}
                                 </button>
                               </div>
                               <ul className='space-y-1'>
