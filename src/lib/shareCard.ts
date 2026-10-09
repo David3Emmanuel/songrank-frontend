@@ -1,4 +1,5 @@
 import type { Track, ShareCardConfig } from './types'
+import { cardFooter } from './site'
 import { cardSubtitle, PLACE_COLOURS } from './scoreDisplay'
 import { coverCrop, formatDurationMs, largerThumbnailUrl } from './videoMetadata'
 import { cardLayout } from './shareLayout'
@@ -437,11 +438,12 @@ export async function generateShareCard({
     }
   })
 
-  // Footer. No domain is claimed, since this app does not have one to promise.
+  // Footer. The address when one is configured, because a card seen in a timeline
+  // is a dead end without something to type, and the name alone when not.
   ctx.textAlign = 'center'
   ctx.fillStyle = colours.muted
   ctx.font = `${footerFont}px system-ui, sans-serif`
-  ctx.fillText('SongRank', width / 2, layout.footerY)
+  ctx.fillText(cardFooter(), width / 2, layout.footerY)
 
   // A blob rather than a data URL: base64 inflates the bytes by a third, and
   // the share sheet wants a Blob anyway.
