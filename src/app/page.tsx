@@ -788,12 +788,6 @@ function DashboardContent() {
             </button>
           </div>
         </section>
-
-        {/* Was "Imports run on your own free YouTube API key", which told a
-            visitor to bring a key that the server already has. */}
-        <p className='mt-6 text-center text-xs text-slate-400'>
-          Imports use YouTube&rsquo;s API.
-        </p>
       </div>
 
       {/* YouTube Import Modal */}
